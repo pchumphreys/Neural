@@ -1,10 +1,11 @@
 import numpy as np
 
 class Replay_Buffer():
-	def __init__(self,n_inputs,n_outputs,max_buffer_size = 1e4,min_pool_size=1000,batch_size=128):
-		self._max_size = int(max_buffer_size)
-		self._min_pool_size = int(min_pool_size)
-		self._batch_size = batch_size
+	def __init__(self,n_inputs,n_outputs,discrete_action= True,**params):
+		self._max_size = int(params.pop('max_buffer_size',1e4))
+		self._min_pool_size = int(params.pop('min_pool_size',1000))
+		self._batch_size = int(params.pop('batch_size',32))
+		self._discrete_action = discrete_action
 		self.n_outputs = n_outputs
 		self.n_inputs = n_inputs
 		self.reset()
@@ -20,6 +21,9 @@ class Replay_Buffer():
 		self.dones = np.zeros(self._max_size)
 		
 	def add_sample(self,action,obs,next_obs,reward,done):
+        if self._discrete_action == True:
+            action = np.eye(self.policy.action_size)[action]
+
 		self.actions[self._pos] = action
 		self.observations[self._pos] = obs
 		self.next_observations[self._pos] = next_obs
@@ -41,6 +45,7 @@ class Replay_Buffer():
 				   next_observations = self.next_observations[inds],
 				   rewards = self.rewards[inds],
 				   dones = self.dones[inds])
+
 	
 	def get_last_sample(self):
 		last_pos = [(self._pos-1) % self._max_size]

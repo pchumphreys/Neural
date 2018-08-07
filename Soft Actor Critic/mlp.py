@@ -6,27 +6,40 @@ import numpy as np
 # The get_output functionality is borrowed from the SAC reference code.
 
 class MLP():
-	def __init__(self,name,inputs,output_size,n_hidden,n_layers):
+	def __init__(self,name,inputs,output_size,layer_spec,final_linear_layer=True,layer_callbacks = []):
 		self._name = name
 		self.inputs = inputs
 		self.output_size = output_size
-		self.n_hidden = n_hidden
-		self.n_layers = n_layers
-		
+		self.layer_spec = layer_spec
+		self.layer_callbacks = layer_callbacks
+		self.final_linear_layer = final_linear_layer
+
 		self.output = self.make_network(reuse = False)
 		
 	def make_network(self,inputs = False,reuse = tf.AUTO_REUSE):
 		# This function just makes a simple fully connected network. It is structured in a little bit of a silly way. The idea is that this lets one reuse the network weights elsewhere with different inputs. Currently not actually using this functionality 
 		if inputs is False :
 			inputs = self.inputs
+		else:
+			self.inputs = inputs
 			
 		with tf.variable_scope(self._name,reuse = reuse):
 			if not(isinstance(inputs,tf.Tensor)):  # Can chuck in more than one input. This just concatenates them
 				inputs = tf.concat(inputs,axis=1)
 
-			# To do: understand weight initialization!   
-			self.hidden = slim.stack(inputs, slim.fully_connected, [self.n_hidden]*self.n_layers, scope='fc',activation_fn=tf.nn.relu) #,weights_regularizer=slim.l2_regularizer(0.1)
-			outputs = slim.fully_connected(self.hidden,self.output_size,activation_fn=None)
+			outputs = inputs
+			for layer in layer_spec:
+				if layer['type'] == 'dense':
+					outputs = make_dense_layer(outputs,*layer_spec)
+				else if layer['type'] in self.layer_callbacks:
+					outputs = self.layer_callbacks[layer['type']](outputs,*layer_spec)
+				else:
+					raise NotImplementedError
+			#,weights_regularizer=slim.l2_regularizer(0.1)
+			
+			if self.final_linear_layer:
+				outputs = slim.fully_connected(outputs,self.output_size,activation_fn=None)# Final linear layer
+
 		return outputs
 
 	def get_params_internal(self):
@@ -38,3 +51,12 @@ class MLP():
 		return tf.get_collection(
 			tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope
 		)
+
+	def make_dense_layer(self,inputs,**layer_spec):
+		
+		activation_fn = layer_spec.pop('activation_fn',tf.nn.relu)
+		scope = layer_spec.pop('scope','fc')
+		size = layer_spec.pop('size')
+
+		return slim.fully_connected(inputs,size,scope=scope,activation_fn=activation_fn)
+		
