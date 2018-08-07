@@ -72,7 +72,7 @@ class DQN_agent(Agent):
     
         gradients, variables = zip(*self.optimizer.compute_gradients(self.Q_Loss + Qnet_regularization_loss,var_list = self.model_Q_params))
         if self.clip_gradients:
-            gradients, _ = tf.clip_by_global_norm(gradients, clip_gradients)
+            gradients, _ = tf.clip_by_global_norm(gradients, self.clip_gradients)
         self.train_Q = self.optimizer.apply_gradients(zip(gradients, variables))
 
         self.train_ops.append(self.train_Q)
