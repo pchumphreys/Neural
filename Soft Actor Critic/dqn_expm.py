@@ -4,8 +4,8 @@ import numpy as np
 import gym
 import os
 
-from expm_params import expm_params
-from algorithms import Deep_Q_Learning
+from dqn_expm_params import expm_params
+from dqn_agent import DQN_agent
 from runner import Runner
 import argparse
 
@@ -30,6 +30,9 @@ def setup_tf():
 
 	return sess
                 
+def episode_finished_callback(runner):
+	if runner.episodes % 100 == 0:
+		print('Average reward at episode %d : %d' % (runner.episodes,np.mean(runner.episode_rewards[-100:])))
 
 def run_expm(expm_name, params = None):
 
@@ -46,11 +49,16 @@ def run_expm(expm_name, params = None):
 	n_inputs = env.observation_space.shape[0]
 	n_outputs = env.action_space.n
 	
-	agent = Deep_Q_Learning(n_inputs,n_outputs,params)
+	agent = DQN_agent(n_inputs,n_outputs,**params)
 
-	runner = Runner(env,agent,params['runner'])
+
+	runner = Runner(env,agent,episode_finished_callback=episode_finished_callback,**params['runner'])
 
 	runner.run()
+
+	sess.close()
+	
+	return runner
  
 
 

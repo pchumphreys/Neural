@@ -5,9 +5,10 @@ class Runner():
         self.env = env
         self.agent = agent
 
+        self.episode_finished_callback = params.pop('episode_finished_callback',None)
         self.max_episodes = params.pop('max_episodes',1)
         self.max_episode_length = params.pop('max_episodes',1)
-        
+        self.verbose = params.pop('verbose',True)
         self.reset()
 
 
@@ -19,7 +20,7 @@ class Runner():
         self.episode_average_losses = []
     
     def run(self):
-        sampler.reset()
+        self.reset()
         
         for i in range(self.max_episodes):
             
@@ -34,21 +35,17 @@ class Runner():
                     self.episodes += 1
 
                     self.episode_rewards.append(self.current_episode_reward)
-                    self.episode_average_losses.append(np.mean(self.current_episode_losses))
+                    if len(self.current_episode_losses):
+                        self.episode_average_losses.append(np.mean(self.current_episode_losses))
 
-                    if verbose:
-                        print('Episode %d reward %d' % (self.episodes,self.current_episode_reward))
+                    if not(self.episode_finished_callback is None):
+                        self.episode_finished_callback(self)
 
-                    agent.episode_done()
+                    self.agent.episode_finished()
 
                     break
-
-                    
-                self.writer.add_summary(summary, i)
         
 
-        print('Epoch %i, mean_reward %d' % (i, sampler.mean_episode_reward))
-      
 
     def sample(self):
         if self.done:
@@ -60,7 +57,7 @@ class Runner():
         action = self.agent.get_action(self.current_obs)
         next_obs, reward, self.done, info = self.env.step(action)
 
-        self.agent.add_sample(action,self.current_obs,next_obs,reward,done)
+        self.agent.add_sample(action,self.current_obs,next_obs,reward,self.done)
         self.current_obs = next_obs
         self.current_episode_reward += reward
         

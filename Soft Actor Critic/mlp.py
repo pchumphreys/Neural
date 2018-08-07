@@ -14,25 +14,24 @@ class MLP():
 		self.layer_callbacks = layer_callbacks
 		self.final_linear_layer = final_linear_layer
 
-		self.output = self.make_network(reuse = False)
+		self.outputs = self.make_network(reuse = False)
 		
 	def make_network(self,inputs = False,reuse = tf.AUTO_REUSE):
 		# This function just makes a simple fully connected network. It is structured in a little bit of a silly way. The idea is that this lets one reuse the network weights elsewhere with different inputs. Currently not actually using this functionality 
 		if inputs is False :
 			inputs = self.inputs
-		else:
-			self.inputs = inputs
 			
 		with tf.variable_scope(self._name,reuse = reuse):
 			if not(isinstance(inputs,tf.Tensor)):  # Can chuck in more than one input. This just concatenates them
 				inputs = tf.concat(inputs,axis=1)
 
 			outputs = inputs
-			for layer in layer_spec:
+
+			for i,layer in enumerate(self.layer_spec):
 				if layer['type'] == 'dense':
-					outputs = make_dense_layer(outputs,*layer_spec)
-				else if layer['type'] in self.layer_callbacks:
-					outputs = self.layer_callbacks[layer['type']](outputs,*layer_spec)
+					outputs = self.make_dense_layer(outputs,i,**layer)
+				elif layer['type'] in self.layer_callbacks:
+					outputs = self.layer_callbacks[layer['type']](outputs,i,**layer)
 				else:
 					raise NotImplementedError
 			#,weights_regularizer=slim.l2_regularizer(0.1)
@@ -52,10 +51,10 @@ class MLP():
 			tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope
 		)
 
-	def make_dense_layer(self,inputs,**layer_spec):
+	def make_dense_layer(self,inputs,layer_number,**layer_spec):
 		
 		activation_fn = layer_spec.pop('activation_fn',tf.nn.relu)
-		scope = layer_spec.pop('scope','fc')
+		scope = layer_spec.pop('scope','fc_' + str(layer_number))
 		size = layer_spec.pop('size')
 
 		return slim.fully_connected(inputs,size,scope=scope,activation_fn=activation_fn)
