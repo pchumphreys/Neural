@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+from scipy.signal import lfilter
 def update_target_network(ref_net_params,target_net_params,tau=1.0,update_op_control_dependencies=[]):
 
     target_update_ops = []
@@ -14,4 +14,4 @@ def update_target_network(ref_net_params,target_net_params,tau=1.0,update_op_con
     return tf.group(target_update_ops)
 
 def calc_discount(signal,discount):
-    return scipy.signal.lfilter([1], [1, -gamma], signal[::-1], axis=0)[::-1]
+    return lfilter([1], [1, -discount], signal[::-1], axis=0)[::-1]

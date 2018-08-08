@@ -3,12 +3,10 @@ import numpy as np
 
 class Base_Agent(): 
 
-    def __init__(self,n_inputs,n_outputs,**params):
+    def __init__(self,**params):
 
-        self.log_dir = params.pop('log_dir',False)
+        self.log_dir = params.get('log_dir',False)
         self.logging = not(self.log_dir is False)
-
-
         self.train_steps = 0
 
         self.train_ops = []
@@ -23,13 +21,15 @@ class Base_Agent():
         raise NotImplementedError
                     
     def _train(self, samples, *args):   
+        assert len(args) == 1
+
         feed_dict = self._construct_feed_dict(samples)  
         if self.logging:
-            _,summary,returns =  tf.get_default_session().run([self.train_ops,self.merged] + list(args), feed_dict = feed_dict)
+            _,summary,returns =  tf.get_default_session().run([self.train_ops,self.merged, args[0]], feed_dict = feed_dict)
             self.writer.add_summary(summary,self.train_steps)
             return returns
         else:
-            _,returns =  tf.get_default_session().run([self.train_ops]+ list(args), feed_dict = feed_dict)
+            _,returns =  tf.get_default_session().run([self.train_ops, args[0]], feed_dict = feed_dict)
             return returns
 
         self.train_steps += 1

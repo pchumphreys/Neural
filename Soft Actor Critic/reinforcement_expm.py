@@ -3,8 +3,10 @@ import tensorflow.contrib.slim as slim
 import numpy as np
 import gym
 import os
+import copy
+import pickle
 
-from agents import load_agent, load_params
+from agents import load_agent, load_expm_params
 from dqn_agent import DQN_agent
 from runner import Runner
 import argparse
@@ -41,19 +43,25 @@ def run_expm(expm_name,algorithm,params = None):
 
 	if params is None:
 		params = load_expm_params(algorithm,expm_name)
+	else:
+		params = copy.deepcopy(params)
 
 	log_dir = os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),
 								   'tensorflow/logs/reinforcement_learning',algorithm,expm_name)
 	params['log_dir'] = log_dir
-	
+	pickle.dump(params, open(os.path.join(log_dir,'params.pickle'),'wb'))
+
+	print('logging in %s:' % log_dir)
+
 	env = gym.make(params['env_name'])
 	n_inputs = env.observation_space.shape[0]
 	n_outputs = env.action_space.n
 	
 	agent = load_agent(algorithm,n_inputs,n_outputs,**params)
 
+	saver = tf.train.Saver()
 
-	runner = Runner(env,agent,episode_finished_callback=episode_finished_callback,**params['runner'])
+	runner = Runner(env,agent,episode_finished_callback=episode_finished_callback,saver=saver,**params)
 
 	runner.run()
 

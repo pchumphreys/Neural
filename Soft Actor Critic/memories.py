@@ -16,8 +16,8 @@ class Memory():
 		self._pos = -1
 		
 		self.actions = np.zeros([self._max_size,self.n_outputs])
-		self.observations = np.zeros([self._max_size,self.n_inputs])
-		self.next_observations = np.zeros([self._max_size,self.n_inputs])
+		self.obs = np.zeros([self._max_size,self.n_inputs])
+		self.next_obs = np.zeros([self._max_size,self.n_inputs])
 		self.rewards = np.zeros(self._max_size)
 		self.dones = np.zeros(self._max_size)
 		
@@ -25,14 +25,14 @@ class Memory():
 		self._advance()
 
 		if self._discrete_action == True:
-			assert(len(action)==1)
+			assert(not(isinstance(action,list)))
 			action = np.eye(self.n_outputs)[action]
 		else:
 			assert(len(action)==self.n_outputs)
 
 		self.actions[self._pos] = action
-		self.observations[self._pos] = obs
-		self.next_observations[self._pos] = next_obs
+		self.obs[self._pos] = obs
+		self.next_obs[self._pos] = next_obs
 		self.rewards[self._pos] = reward
 		self.dones[self._pos] = done
 		
@@ -41,7 +41,7 @@ class Memory():
 		return self._size == self._max_size
 
 	def last_sample_done(self):
-		return self.dones[self._pos] = True
+		return self.dones[self._pos] == True
 
 	def _advance(self):
 		if self._loop_when_full:
@@ -57,16 +57,16 @@ class Memory():
 	def _get_samples(self,inds =  None):
 		if inds is None:
 
-			return dict(actions = self.actions,
-				   observations = self.observations,
-				   next_observations = self.next_observations,
-				   rewards = self.rewards,
-				   dones = self.dones)
+			return dict(actions = self.actions[:self._size],
+				   obs = self.obs[:self._size],
+				   next_obs = self.next_obs[:self._size],
+				   rewards = self.rewards[:self._size],
+				   dones = self.dones[:self._size])
 		else:
 			
 			return dict(actions = self.actions[inds],
-					   observations = self.observations[inds],
-					   next_observations = self.next_observations[inds],
+					   obs = self.obs[inds],
+					   next_obs = self.next_obs[inds],
 					   rewards = self.rewards[inds],
 					   dones = self.dones[inds])
 
@@ -79,13 +79,13 @@ class Memory():
 
 
 class Replay_Buffer(Memory):
-	def __init__(self,**params):
+	def __init__(self,n_inputs,n_outputs,**params):
 		self._min_pool_size = int(params.pop('min_pool_size',1000))
 		self._batch_size = int(params.pop('batch_size',32))
 		params['loop_when_full'] = params.get('loop_when_full',True)
 		assert params['loop_when_full'] == True
 
-		super(Replay_Buffer,self).__init__(**params)
+		super(Replay_Buffer,self).__init__(n_inputs,n_outputs,**params)
 
 	def get_random_batch(self):
 		inds = np.random.randint(0,self._size,self._batch_size)
