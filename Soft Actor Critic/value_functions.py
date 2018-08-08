@@ -6,15 +6,15 @@ from mlp import MLP
 
 class Qnet(MLP):
 	# Make a simple q network
-	def __init__(self,action_size,obs,layer_spec):
+	def __init__(self,obs,action_size,layer_spec,scope='qNet'):
 		# Ok so Q function takes s, gives Q(a|s) 
 		# Super is used to call the init method of the parent class
-		super(Qnet,self).__init__('qNet',obs,action_size,layer_spec)
+		super(Qnet,self).__init__(scope,obs,action_size,layer_spec)
 	  
 class Qnet_advantage(MLP):
-	def __init__(self,action_size,obs,layer_spec):
+	def __init__(self,obs,action_size,layer_spec,scope='qNet'):
 
-		super(Qnet_advantage,self).__init__('qNet',obs,action_size,layer_spec,layer_callbacks = {'adv_value' : adv_value_layer},final_linear_layer=False)
+		super(Qnet_advantage,self).__init__(scope,obs,action_size,layer_spec,layer_callbacks = {'adv_value' : adv_value_layer},final_linear_layer=False)
 	  
 	def adv_value_layer(self,inputs,layer_number,**layer_spec):
 		scope = layer_spec.pop('scope','fc_' + str(layer_number))

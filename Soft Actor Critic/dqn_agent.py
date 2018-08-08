@@ -1,12 +1,12 @@
 import tensorflow as tf
 import numpy as np
 
-from agent import Agent
+from base_agent import Base_Agent
 from value_functions import Qnet
-from policies import Policy_Discrete
+from policies import Policy_Discrete_for_Qnet
 from replay_buffer import Replay_Buffer
 
-class DQN_agent(Agent):
+class DQN_agent(Base_Agent):
     # This class handles the training of the networks
     def __init__(self,n_inputs,n_outputs,**params):
 
@@ -20,33 +20,47 @@ class DQN_agent(Agent):
         self.clip_gradients =  params['agent'].pop('clip_gradients', False)
         self.train_steps_per_t = params['agent'].pop('train_steps_per_t',1)
 
+        self.init_placeholders()
 
-        self.qnet = Qnet(n_outputs,self.obs,params['network_spec'])
+        self.qnet = Qnet(self.obs,n_outputs,params['network_spec'],scope='qnet')
         self.model_Q_params = self.qnet.get_params_internal()
         self.model_Q_outputs = self.qnet.outputs
-
-        # Duplicate the Qnet with different variables for the target network
-        with tf.variable_scope('qNet_T'):
-            self.target_Q_outputs = self.qnet.make_network(inputs = self.next_obs,reuse=False) 
-            self.target_Q_params = self.qnet.get_params_internal()
-
         self.model_Q_predict_from_next_obs = tf.stop_gradient(tf.one_hot(tf.argmax(self.qnet.make_network(inputs = self.next_obs),axis=1),self.qnet.output_size))
         
+        # Duplicate the Qnet with different variables for the target network
+        self.tqnet = Qnet(self.next_obs,n_outputs,params['network_spec'],scope='tqnet')
+        self.target_Q_outputs = self.tqnet.outputs 
+        self.target_Q_params = self.tqnet.get_params_internal()
         
-        self.policy = Policy_Discrete(self.qnet,**params['policy'])
+        self.policy = Policy_Discrete_for_Qnet(self.qnet,**params['policy'])
 
         self.rb = Replay_Buffer(n_inputs,n_outputs,discrete_action=True,**params['replay_buffer'])
     
         self.optimizer = tf.train.AdamOptimizer(learning_rate = self.lr)
         
         self.train_ops = []
-        self.init_Q_net_training()
-        self.init_target_Q_update()
+        self.init_qnet_training_op()
+        self.init_target_qnet_update()
 
         self._finish_agent_setup()
-        
+    
+    def init_placeholders(self):
 
-    def init_Q_net_training(self):
+        self.actions = tf.placeholder(tf.float32,shape = [None,n_outputs],name = 'actions')
+        self.obs = tf.placeholder(tf.float32,shape = [None,n_inputs],name = 'observations')
+        self.next_obs = tf.placeholder(tf.float32,shape = [None,n_inputs],name = 'next_observations')
+        self.rewards = tf.placeholder(tf.float32,shape = [None],name = 'rewards')
+        self.dones = tf.placeholder(tf.float32,shape = [None],name = 'dones')
+
+     def _construct_feed_dict(self,samples):
+        return {self.actions : samples['actions'],
+                self.obs : samples['observations'],
+                self.next_obs : samples['next_observations'],
+                self.dones : samples['dones'],
+                self.rewards : samples['rewards']}
+   
+
+    def init_qnet_training_op(self):
         
 
         with tf.variable_scope('Q_loss'):
@@ -77,20 +91,12 @@ class DQN_agent(Agent):
 
         self.train_ops.append(self.train_Q)
         
-    def init_target_Q_update(self):
-        
-        with tf.variable_scope('Target_Q_update'):
-            self.target_Q_update = []
-            for tQ_p in self.target_Q_params:
-                # Match each target net param with equiv from vnet
-                Q_p = [v for v in self.model_Q_params if tQ_p.name[(tQ_p.name.index('/')+1):] in v.name]
-                assert(len(Q_p) == 1) # Check that only found one variable
-                Q_p = Q_p[0]
-                with tf.control_dependencies([self.train_Q]):
-                    self.target_Q_update.append(tQ_p.assign(self.tau * Q_p + (1-self.tau)*tQ_p))
-            self.target_Q_update = tf.group(self.target_Q_update)
-            
+    def init_target_qnet_update(self):
+                 
+        self.target_Q_update = util_functions.update_target_network(self.model_Q_params,self.target_Q_params,tau=self.tau,update_op_control_dependencies=[self.train_Q])
         self.train_ops.append(self.target_Q_update)
+
+                    
 
     def train(self):
         if self.rb.batch_ready():
@@ -106,5 +112,7 @@ class DQN_agent(Agent):
 
     def get_action(self,obs):
         return self.policy.get_action(obs)
+
+
 
              

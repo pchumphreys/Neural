@@ -6,8 +6,8 @@ import numpy as np
 # The get_output functionality is borrowed from the SAC reference code.
 
 class MLP():
-	def __init__(self,name,inputs,output_size,layer_spec,final_linear_layer=True,layer_callbacks = []):
-		self._name = name
+	def __init__(self,scope,inputs,output_size,layer_spec,final_linear_layer=True,layer_callbacks = []):
+		self._name = scope
 		self.inputs = inputs
 		self.output_size = output_size
 		self.layer_spec = layer_spec

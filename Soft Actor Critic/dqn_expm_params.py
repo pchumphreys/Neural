@@ -20,7 +20,7 @@ expm_params = {
 	 ),
 	 'replay_buffer' : dict(
 		batch_size = 32,
-		max_buffer_size = 2000,
+		max_size = 2000,
 		min_pool_size = 100,
 	 ),
 	 'runner' : dict(

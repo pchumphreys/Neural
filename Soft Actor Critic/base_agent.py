@@ -1,18 +1,13 @@
 import tensorflow as tf
 import numpy as np
 
-class Agent(): 
+class Base_Agent(): 
 
     def __init__(self,n_inputs,n_outputs,**params):
 
         self.log_dir = params.pop('log_dir',False)
         self.logging = not(self.log_dir is False)
 
-        self.actions = tf.placeholder(tf.float32,shape = [None,n_outputs],name = 'actions')
-        self.obs = tf.placeholder(tf.float32,shape = [None,n_inputs],name = 'observations')
-        self.next_obs = tf.placeholder(tf.float32,shape = [None,n_inputs],name = 'next_observations')
-        self.rewards = tf.placeholder(tf.float32,shape = [None],name = 'rewards')
-        self.dones = tf.placeholder(tf.float32,shape = [None],name = 'dones')
 
         self.train_steps = 0
 
@@ -25,14 +20,10 @@ class Agent():
         tf.global_variables_initializer().run() 
 
     def _construct_feed_dict(self,samples):  
-        return {self.actions : samples['actions'],
-                    self.obs : samples['observations'],
-                    self.next_obs : samples['next_observations'],
-                    self.dones : samples['dones'],
-                    self.rewards : samples['rewards']}
+        raise NotImplementedError
                     
-    def _train(self, samples, *args):     
-        feed_dict = self._construct_feed_dict(samples)
+    def _train(self, samples, *args):   
+        feed_dict = self._construct_feed_dict(samples)  
         if self.logging:
             _,summary,returns =  tf.get_default_session().run([self.train_ops,self.merged] + list(args), feed_dict = feed_dict)
             self.writer.add_summary(summary,self.train_steps)
