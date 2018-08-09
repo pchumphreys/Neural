@@ -1,6 +1,6 @@
 ## Modular reinforcement framework
 
-This is my code for reinforcement learning. The main notebook is [Reinforcement Learning.ipynb](Reinforcement Learning.ipynb)
+This is my code for reinforcement learning. The main notebook is [Reinforcement\ Learning.ipynb](Reinforcement Learning.ipynb)
 
 The code follows a standard structure of defining an [agent](base_agent.py) and a [runner](runner.py) that runs the experiment.
 
