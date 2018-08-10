@@ -60,7 +60,7 @@ def clear_logs():
 	if os.path.exists(base_log_dir):
 		shutil.rmtree(base_log_dir)
 
-def setup_expm(algorithm,expm_name,params = None,restore_model=None,episode_finished_callback = None):
+def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode_finished_callback = None):
 
 	sess = setup_tf()
 
@@ -79,8 +79,12 @@ def setup_expm(algorithm,expm_name,params = None,restore_model=None,episode_fini
 
 	runner = Runner(env,agent,episode_finished_callback=episode_finished_callback,**params)
 
-	if not(restore_model is None):
-		runner.saver.restore(sess, restore_model)
+	if not(restore_model_path is None):
+		tf.reset_default_graph() 
+		ckpt = tf.train.get_checkpoint_state(restore_model_path)
+		if ckpt and ckpt.model_checkpoint_path:
+			runner.saver.restore(sess, ckpt.model_checkpoint_path)
+			# imported_meta = tf.train.import_meta_graph(restore_model) 
 		print("Model restored.")
 
 	return runner
@@ -103,6 +107,8 @@ def run_expm(algorithm,expm_name,params = None, runner=None, episode_finished_ca
 		runner = setup_expm(algorithm,expm_name,params = None,episode_finished_callback = episode_finished_callback)
 
 	runner.run()
+	if not(runner.log_dir is None):
+		print('Finished experiment, logged in: %s' % runner.log_dir)
 
 	return runner
 

@@ -18,10 +18,8 @@ class Runner():
 		self.checkpoint_interval = params['runner_params'].pop('checkpoint_interval',100)
 		if not(self.log_dir is None):
 			self.saver = tf.train.Saver(max_to_keep=1)
-
 		self.reset()
-
-
+			
 		
 	def reset(self): 
 		self.done = True
@@ -72,15 +70,17 @@ class Runner():
 				self.agent.episode_finished()
 
 				if (self.episodes % self.checkpoint_interval == 0) and not(self.log_dir is None):
-					self.saver.save(tf.get_default_session(),os.path.join(self.log_dir,'model.ckpt'),global_step = self.episodes)
+					self.saver.save(tf.get_default_session(),os.path.join(self.log_dir,'model'),global_step = self.episodes)
 			
 
 			if not(self.log_dir is None):
-				self.saver.save(tf.get_default_session(),os.path.join(self.log_dir,'final_model.ckpt'),global_step = self.episodes)
+				self.saver.save(tf.get_default_session(),os.path.join(self.log_dir,'final_model'))
 				np.savetxt(os.path.join(self.log_dir,'rewards.csv'),self.episode_rewards)
 					
 		except KeyboardInterrupt:
 			print('Keyboard interupt detected')
+
+		self.env.close()
 
 	def test(self,render=True,optimal_action = True):
 
@@ -92,6 +92,9 @@ class Runner():
 				self.env.render()
 			if self.done or (self.current_t == self.max_episode_length):
 				break
+		print('Episode reward is %d' % (self.current_episode_reward))
+
+		self.env.close()
 
 
 	def sample(self, optimal_action = False, train = True):

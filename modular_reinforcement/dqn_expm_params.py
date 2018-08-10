@@ -40,7 +40,7 @@ expm_params = {
         clip_gradients =  3.0,
         train_steps_per_t = 1,
         soft_learning = True,
-        reward_scale = 1.0
+        reward_scale = 2.0
 	 ),
 	 'policy_params' : dict(
 		action_choice = 'Boltzmann',
