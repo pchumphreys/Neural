@@ -19,6 +19,18 @@ class Base_Agent():
 
     def _construct_feed_dict(self,samples):  
         raise NotImplementedError
+
+    def _get_regs_add_clip_make_optimizer(self,params,loss,scope = None):
+
+        regularization_loss = tf.reduce_sum(tf.get_collection(
+        tf.GraphKeys.REGULARIZATION_LOSSES,
+            scope=scope))
+
+        gradients, variables = zip(*self.optimizer.compute_gradients(loss + regularization_loss,var_list = params))
+        if self.clip_gradients:
+            gradients, _ = tf.clip_by_global_norm(gradients, self.clip_gradients)
+        return self.optimizer.apply_gradients(zip(gradients, variables))
+
                     
     def _train(self, samples, *args):   
         assert len(args) == 1

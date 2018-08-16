@@ -8,7 +8,8 @@ class Runner():
 	def __init__(self,env,agent,**params):
 		self.env = env
 		self.agent = agent
-
+		self.params = params
+		
 		self.episode_finished_callback = params.pop('episode_finished_callback',None)
 		
 		self.max_episodes = params['runner_params'].pop('max_episodes',1)
@@ -62,7 +63,7 @@ class Runner():
 
 				self.episode_rewards.append(self.current_episode_reward)
 				if len(self.current_episode_losses):
-					self.episode_average_losses.append(np.mean(self.current_episode_losses))
+					self.episode_average_losses.append(np.mean(self.current_episode_losses,axis=0))
 
 				if not(self.episode_finished_callback is None):
 					self.episode_finished_callback(self)

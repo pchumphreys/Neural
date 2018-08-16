@@ -8,6 +8,9 @@ def load_expm_params(algorithm,expm_name):
 	elif algorithm == 'DQN':
 		from dqn_expm_params import expm_params
 		return _load_params(algorithm,expm_name,expm_params)
+	elif algorithm == 'TDM':
+		from dqn_expm_params import expm_params
+		return _load_params(algorithm,expm_name,expm_params)
 	else:
 		raise NotImplementedError(algorithm)
 
@@ -27,5 +30,9 @@ def load_agent(algorithm,*args,**kargs):
 	elif algorithm == 'DQN':
 		from dqn_agent import DQN_agent
 		return DQN_agent(*args,**kargs)
+	elif algorithm == 'TDM':
+		from tdm_agent import TDM_agent
+		return TDM_agent(*args,**kargs)
+
 	else:
 		raise NotImplementedError(algorithm)

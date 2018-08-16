@@ -53,7 +53,7 @@ class PPO_agent(Base_Agent):
 		self._init_training_op()
 
 		# Update new policy to match old policy	
-		self.target_policy_update = uf.update_target_network(self.policy_params,self.target_policy_params,tau='Discrete',update_op_control_dependencies=[self.train_op])
+		self.target_policy_update = uf.update_target_network(self.policy_params,self.target_policy_params,tau='Discrete',update_op_control_dependencies=self.train_ops)
 		self.train_ops.append(self.target_policy_update)
 
 		self._finish_agent_setup()
@@ -89,20 +89,9 @@ class PPO_agent(Base_Agent):
 			self.val_loss = tf.reduce_mean(tf.square(self.model_v_outputs - self.val_targets))
 			tf.summary.scalar('val_loss', self.val_loss)
 
-		regularization_losses = tf.get_collection(
-			tf.GraphKeys.REGULARIZATION_LOSSES)
-		regularization_loss = tf.reduce_sum(
-			regularization_losses)
+		train_op = self._get_regs_add_clip_make_optimizer(self.model_v_params + self.policy_params,self.val_loss + self.policy_loss)
 
-		self.total_loss = self.val_loss + regularization_loss + self.policy_loss
-		
-	
-		gradients, variables = zip(*self.optimizer.compute_gradients(self.total_loss,var_list = self.model_v_params + self.policy_params))
-		if self.clip_gradients:
-			gradients, _ = tf.clip_by_global_norm(gradients, self.clip_gradients)
-		self.train_op = self.optimizer.apply_gradients(zip(gradients, variables))
-
-		self.train_ops.append(self.train_op)
+		self.train_ops.append(train_op)
 
 		
 	def train(self):

@@ -34,8 +34,9 @@ def setup_tf():
 	except:
 		pass
 	else:
-		sess.close()
-		del sess
+		# sess.close()
+		# del sess
+		return sess
 	sess = tf.InteractiveSession()
 
 	return sess

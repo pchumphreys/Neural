@@ -63,7 +63,7 @@ class DQN_agent(Base_Agent):
 		self.train_ops = []
 		self._init_qnet_training_op()
 		
-		self.target_Q_update = uf.update_target_network(self.model_Q_params,self.target_Q_params,tau=self.tau,update_op_control_dependencies=[self.train_Q])
+		self.target_Q_update = uf.update_target_network(self.model_Q_params,self.target_Q_params,tau=self.tau,update_op_control_dependencies=self.train_ops)
 		self.train_ops.append(self.target_Q_update)
 
 
@@ -90,33 +90,23 @@ class DQN_agent(Base_Agent):
 		with tf.variable_scope('Q_loss'):
 
 			if self.dueling:
-				self.Q_t = tf.stop_gradient(self.rewards +  self.discount * (1-self.dones) * tf.reduce_sum(self.target_Q_outputs*self.model_Q_predict_from_next_obs,axis=1))
+				target = tf.stop_gradient(self.rewards +  self.discount * (1-self.dones) * tf.reduce_sum(self.target_Q_outputs*self.model_Q_predict_from_next_obs,axis=1))
 			elif self.soft_learning:
-				self.Q_t = tf.stop_gradient(self.rewards*self.reward_scale  +  self.discount * (1-self.dones) * self.target_V)
+				target = tf.stop_gradient(self.rewards*self.reward_scale  +  self.discount * (1-self.dones) * self.target_V)
 			else:
-				self.Q_t = tf.stop_gradient(self.rewards +  self.discount * (1-self.dones) * tf.reduce_max(self.target_Q_outputs,axis=1))
+				target = tf.stop_gradient(self.rewards +  self.discount * (1-self.dones) * tf.reduce_max(self.target_Q_outputs,axis=1))
 		
 				
 			if self.huber_loss:
-				self.Q_Loss = tf.reduce_mean(tf.sqrt(1+tf.square(tf.reduce_sum(self.model_Q_outputs*self.actions,axis=1) - self.Q_t))-1)
+				self.Q_Loss = tf.reduce_mean(tf.sqrt(1+tf.square(tf.reduce_sum(self.model_Q_outputs*self.actions,axis=1) - target))-1)
 			else:
-				self.Q_Loss = tf.reduce_mean(tf.square(tf.reduce_sum(self.model_Q_outputs*self.actions,axis=1) - self.Q_t))
+				self.Q_Loss = tf.reduce_mean(tf.square(tf.reduce_sum(self.model_Q_outputs*self.actions,axis=1) - target))
 
 			tf.summary.scalar('Q_loss', self.Q_Loss)
 		
+		train_op = self._get_regs_add_clip_make_optimizer(self.model_Q_params,self.Q_Loss,self.qnet._name)
 
-		Qnet_regularization_losses = tf.get_collection(
-			tf.GraphKeys.REGULARIZATION_LOSSES,
-			scope=self.qnet._name)
-		Qnet_regularization_loss = tf.reduce_sum(
-			Qnet_regularization_losses)
-	
-		gradients, variables = zip(*self.optimizer.compute_gradients(self.Q_Loss + Qnet_regularization_loss,var_list = self.model_Q_params))
-		if self.clip_gradients:
-			gradients, _ = tf.clip_by_global_norm(gradients, self.clip_gradients)
-		self.train_Q = self.optimizer.apply_gradients(zip(gradients, variables))
-
-		self.train_ops.append(self.train_Q)
+		self.train_ops.append(train_op)
 	
 					
 
