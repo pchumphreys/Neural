@@ -6,12 +6,13 @@ expm_params = {
 		lr = 1e-3,
 		tau = 0.01,
 		discount = 0.99,
-		dueling = False,
+		double = False,
         huber_loss = False,
         clip_gradients =  3.0,
         train_steps_per_t = 1,
-        soft_learning = True,
-        reward_scale = 1.0
+        soft_learning = False,
+        reward_scale = 1.0,
+        multi_step = 1,
 	 ),
 	 'policy_params' : dict(
 		action_choice = 'Boltzmann',
@@ -25,7 +26,7 @@ expm_params = {
 	 	max_episodes = 400,
 		max_episode_length = 300,
 	  ),
-	 'network_spec' : 2*[dict(type = 'dense',size=32)]
+	 'network_spec' : 2*[dict(type = 'dense',size=16)]
 	},
 
 	'LunarLander' : 
@@ -35,12 +36,13 @@ expm_params = {
 		lr = 1e-3,
 		tau = 0.01,
 		discount = 0.99,
-		dueling = False,
+		double = False,
         huber_loss = True,
-        clip_gradients =  3.0,
+        clip_gradients =  5.0,
         train_steps_per_t = 1,
         soft_learning = True,
-        reward_scale = 2.0
+        reward_scale = 1.0,
+        multi_step = False,
 	 ),
 	 'policy_params' : dict(
 		action_choice = 'Boltzmann',
@@ -51,7 +53,7 @@ expm_params = {
 		min_pool_size = 1000,
 	 ),
 	 'runner_params' : dict(
-	 	max_episodes = 3000,
+	 	max_episodes = 200,
 		max_episode_length = -1,
 	  ),
 	 'network_spec' : 2*[dict(type = 'dense',size=20)]
@@ -65,7 +67,7 @@ expm_params = {
 		lr = 1e-3,
 		tau = 0.01,
 		discount = 0.99,
-		dueling = False,
+		double = False,
         huber_loss = True,
         clip_gradients =  3.0,
         train_steps_per_t = 1,

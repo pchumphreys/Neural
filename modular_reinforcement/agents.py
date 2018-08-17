@@ -1,3 +1,5 @@
+import copy
+
 def load_expm_params(algorithm,expm_name):
 	if algorithm == 'A2C':
 		from a2c_expm_params import expm_params
@@ -9,14 +11,14 @@ def load_expm_params(algorithm,expm_name):
 		from dqn_expm_params import expm_params
 		return _load_params(algorithm,expm_name,expm_params)
 	elif algorithm == 'TDM':
-		from dqn_expm_params import expm_params
+		from tdm_expm_params import expm_params
 		return _load_params(algorithm,expm_name,expm_params)
 	else:
 		raise NotImplementedError(algorithm)
 
 def _load_params(algorithm,expm_name,expm_params):
 	if expm_name in expm_params:
-		return expm_params[expm_name]
+		return copy.deepcopy(expm_params[expm_name])
 	else: 
 		raise NotImplementedError(algorithm,expm_name)
 

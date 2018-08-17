@@ -76,7 +76,7 @@ def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode
 	n_inputs = env.observation_space.shape[0]
 	n_outputs = env.action_space.n
 	
-	agent = load_agent(algorithm,n_inputs,n_outputs,**params)
+	agent = load_agent(algorithm,n_inputs,n_outputs,**copy.deepcopy(params))
 
 	runner = Runner(env,agent,episode_finished_callback=episode_finished_callback,**params)
 

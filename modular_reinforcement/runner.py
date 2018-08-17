@@ -1,15 +1,17 @@
 import numpy as np
 import tensorflow as tf
 import os
+import copy
 from matplotlib import pyplot as plt
 import time
+import traceback 
 
 class Runner():
 	def __init__(self,env,agent,**params):
 		self.env = env
 		self.agent = agent
-		self.params = params
-		
+		self.params = copy.deepcopy(params)
+
 		self.episode_finished_callback = params.pop('episode_finished_callback',None)
 		
 		self.max_episodes = params['runner_params'].pop('max_episodes',1)
@@ -52,19 +54,21 @@ class Runner():
 						self.current_episode_losses.append(losses)
 						self.global_trains += 1 
 
-					if (self.done or self.current_t == self.max_episode_length):
+					if self.done:
 						break
 
 					self.global_t += 1
 		
-
 				self.done = True   
 				self.episodes += 1
 
 				self.episode_rewards.append(self.current_episode_reward)
 				if len(self.current_episode_losses):
-					self.episode_average_losses.append(np.mean(self.current_episode_losses,axis=0))
-
+					if len(self.episode_average_losses):
+						self.episode_average_losses = np.append(self.episode_average_losses,[np.mean(self.current_episode_losses,axis=0)],axis=0)
+					else:
+						self.episode_average_losses = np.array([np.mean(self.current_episode_losses,axis=0)])
+				
 				if not(self.episode_finished_callback is None):
 					self.episode_finished_callback(self)
 
@@ -77,9 +81,15 @@ class Runner():
 			if not(self.log_dir is None):
 				self.saver.save(tf.get_default_session(),os.path.join(self.log_dir,'final_model'))
 				np.savetxt(os.path.join(self.log_dir,'rewards.csv'),self.episode_rewards)
+				np.savetxt(os.path.join(self.log_dir,'losses.csv'),self.episode_average_losses)
 					
 		except KeyboardInterrupt:
 			print('Keyboard interupt detected')
+
+		except:
+			raise
+
+		self.episode_finished_callback(self)
 
 		self.env.close()
 
@@ -107,6 +117,9 @@ class Runner():
 			
 		action = self.agent.get_action(self.current_obs, optimal_action = optimal_action)
 		next_obs, reward, self.done, info = self.env.step(action)
+
+		if self.current_t == self.max_episode_length:
+			self.done = True
 
 		if train:   
 			self.agent.add_sample(action,self.current_obs,next_obs,reward,self.done)

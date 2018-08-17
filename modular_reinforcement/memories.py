@@ -1,4 +1,6 @@
 import numpy as np
+import util_functions as uf
+# from IPython.core.debugger import set_trace; set_trace()
 
 
 class Memory():
@@ -70,6 +72,38 @@ class Memory():
 					   rewards = self.rewards[inds],
 					   dones = self.dones[inds])
 
+	def _get_samples(self,inds =  None,multi_step =False):
+
+		if multi_step:
+			return self._get_multi_step_samples(inds,multi_step)
+
+		elif inds is None:
+
+			return dict(actions = self.actions[:self._size],
+				   obs = self.obs[:self._size],
+				   next_obs = self.next_obs[:self._size],
+				   rewards = self.rewards[:self._size],
+				   dones = self.dones[:self._size])
+		else:
+			
+			return dict(actions = self.actions[inds],
+					   obs = self.obs[inds],
+					   next_obs = self.next_obs[inds],
+					   rewards = self.rewards[inds],
+					   dones = self.dones[inds])
+
+	def _get_multi_step_samples(self,inds,multi_step):
+		to_get_inds = np.expand_dims(inds,1) + np.tile(np.arange(multi_step),(np.shape(inds)[0],1))
+		final_step_inds = to_get_inds[:,-1]
+		dones = self.dones[to_get_inds]
+		rewards = self.rewards[to_get_inds] * uf.mask_rewards_using_dones(dones,axis=1) # Only keep rewards up to done
+		dones = np.sum(self.dones[to_get_inds],1) # Finally, signal done if any within are done
+		return dict(actions = self.actions[inds],
+			   obs = self.obs[inds],
+			   next_obs = self.next_obs[final_step_inds],
+			   rewards = rewards, # Note that rewards is still large, since need to apply discount appropriately.
+			   dones = dones)
+
 	def get_last_sample(self):
 		ind = [self._pos]
 		return self._get_samples(ind)
@@ -82,14 +116,17 @@ class Replay_Buffer(Memory):
 	def __init__(self,n_inputs,n_outputs,**params):
 		self._min_pool_size = int(params.pop('min_pool_size',1000))
 		self._batch_size = int(params.pop('batch_size',32))
+		self._multi_step = params.pop('multi_step',False)
+
 		params['loop_when_full'] = params.get('loop_when_full',True)
 		assert params['loop_when_full'] == True
 
 		super(Replay_Buffer,self).__init__(n_inputs,n_outputs,**params)
 
 	def get_random_batch(self):
-		inds = np.random.randint(0,self._size,self._batch_size)
-		return self._get_samples(inds)
+		size_adjust = (self._multi_step-1) if self._multi_step else 0
+		inds = np.random.randint(0,self._size-size_adjust,self._batch_size)
+		return self._get_samples(inds,self._multi_step)
 
 	def batch_ready(self):
 		return self._size >= self._min_pool_size

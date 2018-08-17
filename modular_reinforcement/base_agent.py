@@ -52,7 +52,7 @@ class Base_Agent():
 
     
     def get_action(self,obs,optimal_action = False):
-        return self.policy.get_action(obs,optimal_action = optimal_action)
+        return self.policy.get_actions(obs,optimal_action = optimal_action)
 
 
     def train(self,*kw):

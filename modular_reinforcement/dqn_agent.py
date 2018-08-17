@@ -22,12 +22,15 @@ class DQN_agent(Base_Agent):
 
 		self.soft_learning = params['agent_params'].pop('soft_learning',False)
 		self.reward_scale = params['agent_params'].pop('reward_scale',1.0)
-		self.dueling =  params['agent_params'].pop('dueling', True)
+		self.double =  params['agent_params'].pop('double', False)
 		self.huber_loss =  params['agent_params'].pop('huber_loss', True)
 		self.clip_gradients =  params['agent_params'].pop('clip_gradients', False)
 		self.train_steps_per_t = params['agent_params'].pop('train_steps_per_t',1)
+		self.multi_step = params['agent_params'].pop('multi_step',False)
+		if self.multi_step:
+			self.discount = self.discount**self.multi_step
 
-		assert not(self.soft_learning and self.dueling)
+		assert not(self.soft_learning and self.double)
 		
 		self._init_placeholders()
 
@@ -56,7 +59,7 @@ class DQN_agent(Base_Agent):
 
 		self.policy = Policy_Discrete_for_Qnet(self.qnet,**params['policy_params'])
 
-		self.rb = Replay_Buffer(self.n_inputs,self.n_outputs,discrete_action=True,**params['replay_buffer_params'])
+		self.rb = Replay_Buffer(self.n_inputs,self.n_outputs,discrete_action=True,multi_step = self.multi_step ,**params['replay_buffer_params'])
 	
 		self.optimizer = tf.train.AdamOptimizer(learning_rate = self.lr)
 		
@@ -77,6 +80,8 @@ class DQN_agent(Base_Agent):
 		self.rewards = tf.placeholder(tf.float32,shape = [None],name = 'rewards')
 		self.dones = tf.placeholder(tf.float32,shape = [None],name = 'dones')
 
+		self.scaled_rewards = self.reward_scale * self.rewards
+		
 	def _construct_feed_dict(self,samples):
 		return {self.actions : samples['actions'],
 				self.obs : samples['obs'],
@@ -89,12 +94,12 @@ class DQN_agent(Base_Agent):
 
 		with tf.variable_scope('Q_loss'):
 
-			if self.dueling:
-				target = tf.stop_gradient(self.rewards +  self.discount * (1-self.dones) * tf.reduce_sum(self.target_Q_outputs*self.model_Q_predict_from_next_obs,axis=1))
+			if self.double:
+				target = tf.stop_gradient(self.scaled_rewards +  self.discount * (1-self.dones) * tf.reduce_sum(self.target_Q_outputs*self.model_Q_predict_from_next_obs,axis=1))
 			elif self.soft_learning:
-				target = tf.stop_gradient(self.rewards*self.reward_scale  +  self.discount * (1-self.dones) * self.target_V)
+				target = tf.stop_gradient(self.scaled_rewards  +  self.discount * (1-self.dones) * self.target_V)
 			else:
-				target = tf.stop_gradient(self.rewards +  self.discount * (1-self.dones) * tf.reduce_max(self.target_Q_outputs,axis=1))
+				target = tf.stop_gradient(self.scaled_rewards +  self.discount * (1-self.dones) * tf.reduce_max(self.target_Q_outputs,axis=1))
 		
 				
 			if self.huber_loss:
@@ -114,6 +119,8 @@ class DQN_agent(Base_Agent):
 		if self.rb.batch_ready():
 			for j in range(self.train_steps_per_t):
 				samples = self.rb.get_random_batch()
+				if self.multi_step:
+					samples['rewards'] = uf.calc_discount(samples['rewards'],self.discount,axis=1)[:,0]
 				losses = self._train(samples,self.Q_Loss)
 		else:
 			losses = False
