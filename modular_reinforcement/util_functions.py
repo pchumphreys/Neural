@@ -24,3 +24,11 @@ def calc_discount(signal,discount,axis=0):
     
 def mask_rewards_using_dones(dones,axis=1): # Use dones to make a mask -> if done, all next steps should be False
     return (lfilter([0,1], [1, -1], (dones.astype(float)), axis=axis) < 1)
+
+
+def aws_save_to_bucket(source_dir,target_file_name):
+    import shutil
+    import boto3
+    s3 = boto3.resource('s3')
+    zipf = shutil.make_archive(target_file_name, 'zip', source_dir)
+    s3.Bucket('phumphreys-neural').upload_file(zipf,os.path.join('run_logs',target_file_name))

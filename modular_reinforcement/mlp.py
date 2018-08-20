@@ -23,6 +23,7 @@ class MLP():
 			
 		with tf.variable_scope(self._name,reuse = reuse):
 			if not(isinstance(inputs,tf.Tensor)):  # Can chuck in more than one input. This just concatenates them
+				inputs = [inputt if tf.rank(inputt).eval() == 2 else tf.expand_dims(inputt,axis=1) for inputt in inputs]
 				inputs = tf.concat(inputs,axis=1)
 
 			outputs = inputs
@@ -56,6 +57,7 @@ class MLP():
 		activation_fn = layer_spec.pop('activation_fn',tf.nn.relu)
 		scope = layer_spec.pop('scope','fc_' + str(layer_number))
 		size = layer_spec.pop('size')
-
-		return slim.fully_connected(inputs,size,scope=scope,activation_fn=activation_fn)
+		reg_weight = layer_spec.pop('reg_weight',None)
+		regularizer = None if (reg_weight is None) else slim.l2_regularizer(reg_weight)
+		return slim.fully_connected(inputs,size,scope=scope,activation_fn=activation_fn,weights_regularizer=regularizer)
 		

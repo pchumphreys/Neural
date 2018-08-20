@@ -38,7 +38,12 @@ class Base_Policy_Discrete():
         else:
             if self.action_choice == 'Boltzmann':
 
-                return self.draw_policy_from_boltz_probs.eval(feed_dict = {self.inputs : [obs]})
+                action = self.draw_policy_from_boltz_probs.eval(feed_dict = {self.inputs : [obs]})
+                if action == self.action_size:
+                    print('Numerical instability!')
+                    print(self.outputs.eval(feed_dict = {self.inputs : [obs]}))
+                    action -= 1
+                return action
                     
             elif self.action_choice == 'Epsilon':
 

@@ -14,6 +14,8 @@ from dqn_agent import DQN_agent
 from runner import Runner
 import argparse
 
+base_log_dir = os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),'tensorflow/logs/reinforcement_learning')
+	
 if __name__ == "__main__":
 
 	parser = argparse.ArgumentParser("Reinforcement experiment")
@@ -42,12 +44,13 @@ def setup_tf():
 	return sess
 				
 def setup_logging(algorithm,expm_name,params,group=None):
-	base_log_dir = os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),'tensorflow/logs/reinforcement_learning')
-	log_dir = os.path.join(base_log_dir,algorithm,expm_name,datetime.datetime.now().strftime("%Y%m%d_%H%M%S"))
+	folder_name = '_'.join([algorithm,expm_name,datetime.datetime.now().strftime("%Y%m%d_%H%M%S")])
+	log_dir = os.path.join(base_log_dir,folder_name)
 	if not os.path.exists(log_dir):
 		os.makedirs(log_dir)
 
 	params['log_dir'] = log_dir
+	params['folder_name'] = folder_name
 	print('logging in %s:' % log_dir)
 
 	# Save params to log dir
@@ -61,7 +64,7 @@ def clear_logs():
 	if os.path.exists(base_log_dir):
 		shutil.rmtree(base_log_dir)
 
-def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode_finished_callback = None):
+def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode_finished_callback = None,use_AWS =False):
 
 	sess = setup_tf()
 
@@ -71,6 +74,7 @@ def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode
 		params = copy.deepcopy(params)
 
 	params = setup_logging(algorithm,expm_name,params)
+	params['use_AWS'] = use_AWS
 
 	env = gym.make(params['env_name'])
 	n_inputs = env.observation_space.shape[0]
@@ -91,7 +95,7 @@ def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode
 	return runner
 
 def episode_finished_callback(runner):
-	if runner.episodes % 100 == 0:
+	if runner.episodes % 10 == 0:
 		print('Average reward at episode %d : %d' % (runner.episodes,np.mean(runner.episode_rewards[-100:])))
 		print('Avg sample time is %f (ms)' % (1000*runner.avg_sample_time))
 		print('Avg train time is %f (ms)' % ((runner.global_trains/runner.global_t)*(1000*runner.avg_train_time)))
@@ -103,9 +107,9 @@ def episode_finished_callback(runner):
 		plt.show()
 		plt.close()
 		
-def run_expm(algorithm,expm_name,params = None, runner=None, episode_finished_callback = None):
+def run_expm(algorithm,expm_name,params = None, runner=None, episode_finished_callback = None,use_AWS =False):
 	if runner is None:
-		runner = setup_expm(algorithm,expm_name,params = None,episode_finished_callback = episode_finished_callback)
+		runner = setup_expm(algorithm,expm_name,params = None,episode_finished_callback = episode_finished_callback,use_AWS =use_AWS)
 
 	runner.run()
 	if not(runner.log_dir is None):
@@ -156,12 +160,19 @@ def grid_search(algorithm,expm_name,grid_params,params=None,runs_per_point = 3):
 
 	return rewards
 	
-def sweep_test_cases(algorithm,expm_name,test_case_params,params = None,runs_per_point = 3):
+def sweep_test_cases(algorithm,expm_name,test_case_params,params = None,runs_per_point = 3,episode_finished_callback=episode_finished_callback,use_AWS=False):
 	
 	if params is None:
 		params = load_expm_params(algorithm,expm_name)
 	else:
 		params = copy.deepcopy(params)
+
+	folder_name = '_'.join(['sweep_test_cases',datetime.datetime.now().strftime("%Y%m%d_%H%M%S")])
+	log_dir = os.path.join(base_log_dir,folder_name)
+	if not os.path.exists(log_dir):
+		os.makedirs(log_dir)
+	with open(os.path.join(log_dir,'test_case_params.json'), 'w') as outfile:
+		json.dump(test_case_params, outfile)
 
 	max_episodes = params['runner_params']['max_episodes']
 	rewards = np.zeros((len(test_case_params),runs_per_point,max_episodes))
@@ -175,12 +186,17 @@ def sweep_test_cases(algorithm,expm_name,test_case_params,params = None,runs_per
 				for item, values in iter(items.items()):
 					test_params[cat][item] = values
 
-		print('Testing %s' % (test_name))
-		print(test_params)
+
+		persistent_to_print = [('Testing %s' % (test_name)),test_params]
 		
 		for j in range(runs_per_point):
-			runner = run_expm(algorithm,expm_name, params = test_params)
+			runner = run_expm(algorithm,expm_name, params = test_params,episode_finished_callback= (lambda x: episode_finished_callback(x, persistent_to_print)),use_AWS=use_AWS)
 			rewards[i,j] = runner.episode_rewards
+
+			np.savetxt(os.path.join(log_dir,'rewards.csv'),rewards)
+	
+	if use_AWS:
+		uf.aws_save_to_bucket(self.log_dir,self.params['folder_name'])
 
 	labels = test_case_params.keys()
 

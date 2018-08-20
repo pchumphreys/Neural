@@ -18,6 +18,8 @@ class Runner():
 		self.max_episode_length = params['runner_params'].pop('max_episode_length',-1)
 		
 		self.log_dir = params.get('log_dir',None)
+		self.using_AWS = params.get('use_AWS',False)
+		
 		self.checkpoint_interval = params['runner_params'].pop('checkpoint_interval',100)
 		if not(self.log_dir is None):
 			self.saver = tf.train.Saver(max_to_keep=1)
@@ -59,7 +61,6 @@ class Runner():
 
 					self.global_t += 1
 		
-				self.done = True   
 				self.episodes += 1
 
 				self.episode_rewards.append(self.current_episode_reward)
@@ -77,11 +78,6 @@ class Runner():
 				if (self.episodes % self.checkpoint_interval == 0) and not(self.log_dir is None):
 					self.saver.save(tf.get_default_session(),os.path.join(self.log_dir,'model'),global_step = self.episodes)
 			
-
-			if not(self.log_dir is None):
-				self.saver.save(tf.get_default_session(),os.path.join(self.log_dir,'final_model'))
-				np.savetxt(os.path.join(self.log_dir,'rewards.csv'),self.episode_rewards)
-				np.savetxt(os.path.join(self.log_dir,'losses.csv'),self.episode_average_losses)
 					
 		except KeyboardInterrupt:
 			print('Keyboard interupt detected')
@@ -89,7 +85,15 @@ class Runner():
 		except:
 			raise
 
-		self.episode_finished_callback(self)
+		if not(self.log_dir is None):
+				self.saver.save(tf.get_default_session(),os.path.join(self.log_dir,'final_model'))
+				np.savetxt(os.path.join(self.log_dir,'rewards.csv'),self.episode_rewards)
+				np.savetxt(os.path.join(self.log_dir,'losses.csv'),self.episode_average_losses)
+				if self.using_AWS:
+					uf.aws_save_to_bucket(self.log_dir,self.params['folder_name'])
+
+		if not(self.episode_finished_callback is None):		
+			self.episode_finished_callback(self)
 
 		self.env.close()
 

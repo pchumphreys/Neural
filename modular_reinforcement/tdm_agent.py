@@ -47,49 +47,40 @@ class TDM_agent(Base_Agent):
 		self.model_Q_outputs = self.qnet.outputs
 		
 		### FNET
-		self.fnet = Qnet([self.obs,self.actions,self.one_hot_tds],self.n_inputs,params['network_spec'],scope='fnet')
+		self.fnet = Qnet([self.obs,self.actions,self.scaled_tds],self.n_inputs,params['network_spec'],scope='fnet')
 		self.model_F_params = self.fnet.get_params_internal()
 		self.model_F_outputs = self.fnet.outputs
 		
 		### RNET
-		self.rnet = Qnet([self.obs,self.actions,self.one_hot_tds],1,params['network_spec'],scope='rnet')
+		self.rnet = Qnet([self.obs,self.actions,self.scaled_tds],1,params['network_spec'],scope='rnet')
 		self.model_R_params = self.rnet.get_params_internal()
 		self.model_R_outputs = self.rnet.outputs
 
 		### ENET
 		if self.soft_learning:
-			self.enet = Qnet([self.obs,self.actions,self.one_hot_tds],1,params['network_spec'],scope='enet')
-			self.model_E_params = self.enet.get_params_internal()
-			self.model_E_outputs = self.enet.outputs
-
 			self.model_Q_predict_action_from_next_obs = tf.stop_gradient(tf.one_hot(tf.multinomial(self.qnet.make_network(inputs = self.next_obs),1)[:,0],self.qnet.output_size))
 		else:
 			self.model_Q_predict_action_from_next_obs = tf.stop_gradient(tf.one_hot(tf.argmax(self.qnet.make_network(inputs = self.next_obs),axis=1),self.qnet.output_size))
 		
 		# Duplicate the Fnet with different variables for the target network
-		self.tfnet = Qnet([self.next_obs,self.model_Q_predict_action_from_next_obs,self.one_hot_next_tds],self.n_inputs,params['network_spec'],scope='tfnet')
+		self.tfnet = Qnet([self.next_obs,self.model_Q_predict_action_from_next_obs,self.scaled_next_tds],self.n_inputs,params['network_spec'],scope='tfnet')
 		self.target_F_outputs = self.tfnet.outputs 
 		self.target_F_params = self.tfnet.get_params_internal()
-		self.target_F_from_obs = self.tfnet.make_network(inputs = [self.obs,self.actions,self.one_hot_tds])  
+		self.target_F_from_obs = self.tfnet.make_network(inputs = [self.obs,self.actions,self.scaled_tds])  
 
 		# Duplicate the Rnet with different variables for the target network
-		self.trnet = Qnet([self.next_obs,self.model_Q_predict_action_from_next_obs,self.one_hot_next_tds],1,params['network_spec'],scope='trnet')
+		self.trnet = Qnet([self.next_obs,self.model_Q_predict_action_from_next_obs,self.scaled_next_tds],1,params['network_spec'],scope='trnet')
 		self.target_R_outputs = self.trnet.outputs 
 		self.target_R_params = self.trnet.get_params_internal()
-		self.target_R_from_obs = self.trnet.make_network(inputs = [self.obs,self.actions,self.one_hot_tds])
+		self.target_R_from_obs = self.trnet.make_network(inputs = [self.obs,self.actions,self.scaled_tds])
 		  
 		# Duplicate the Qnet with different variables for the target network
 		self.tqnet = Qnet(tf.add(self.next_obs,self.td_is_not_zero * self.target_F_outputs),self.n_outputs,params['network_spec'],scope='tqnet')
 		self.target_Q_outputs = self.tqnet.outputs 
 		self.target_Q_params = self.tqnet.get_params_internal()  
 		
-		# Duplicate the Enet with different variables for the target network
 		if self.soft_learning:
-			self.tenet = Qnet([self.next_obs,self.model_Q_predict_action_from_next_obs,self.one_hot_next_tds],1,params['network_spec'],scope='tenet')
-			self.target_E_outputs = self.tenet.outputs 
-			self.target_E_params = self.tenet.get_params_internal()
-			self.target_E_from_obs = self.tenet.make_network(inputs = [self.obs,self.actions,self.one_hot_tds])
-
+	
 			# For soft learning
 			# V = sum(p(s,a) * (q(s,a) - log(p(s,a)))
 			#   = sum(exp(q)/z * (q - log(exp(q)/z)))
@@ -115,20 +106,13 @@ class TDM_agent(Base_Agent):
 		self.target_Q_update = uf.update_target_network(self.model_Q_params,self.target_Q_params,tau=self.tau,update_op_control_dependencies=self.q_train_op)
 		self.target_R_update = uf.update_target_network(self.model_R_params,self.target_R_params,tau=self.tau,update_op_control_dependencies=self.train_ops)
 		self.target_F_update = uf.update_target_network(self.model_F_params,self.target_F_params,tau=self.tau,update_op_control_dependencies=self.train_ops)
-		if self.soft_learning:
-			self.target_E_update = uf.update_target_network(self.model_E_params,self.target_E_params,tau=self.tau,update_op_control_dependencies=self.train_ops)
-		
 		self.train_ops.append([self.target_R_update,self.target_F_update])
-		if self.soft_learning:
-			self.target_E_update
-
+		
 		self.q_train_ops = tf.group(self.q_train_op,self.target_Q_update)
 		self.train_ops = tf.group(self.train_ops,self.q_train_ops)
 		
 		self.loss_ops = [self.R_Loss,self.F_Loss,self.Q_Loss]
-		if self.soft_learning:
-			self.loss_ops.append(self.E_Loss)
-
+		
 		self._finish_agent_setup()
 
 	def _init_placeholders(self):
@@ -138,14 +122,15 @@ class TDM_agent(Base_Agent):
 		self.next_obs = tf.placeholder(tf.float32,shape = [None,self.n_inputs],name = 'next_observations')
 		self.rewards = tf.placeholder(tf.float32,shape = [None],name = 'rewards')
 		self.dones = tf.placeholder(tf.float32,shape = [None],name = 'dones')
-		self.tds = tf.placeholder(tf.int32,shape = [None],name = 'tds')
+		
+		self.tds = tf.placeholder(tf.float32,shape = [None],name = 'tds')
+		self.scaled_tds = self.tds / self.max_td
+		self.next_tds = self.tds - 1
+		self.scaled_next_tds = self.next_tds/ self.max_td
+		self.td_is_not_zero = tf.expand_dims(tf.to_float(tf.greater(self.tds,0)),1)
 
 		self.scaled_rewards = self.reward_scale * self.rewards
 
-		self.one_hot_tds = tf.one_hot(self.tds,depth = self.max_td)
-		self.next_tds = self.tds - 1
-		self.one_hot_next_tds = tf.one_hot(self.next_tds,depth = self.max_td)
-		self.td_is_not_zero = tf.expand_dims(tf.to_float(tf.greater(self.tds,0)),1)
 
 	def _construct_feed_dict(self,samples):
 		return {self.actions : samples['actions'],
@@ -160,9 +145,9 @@ class TDM_agent(Base_Agent):
 
 		with tf.variable_scope('Q_loss'):
 			if self.double:
-				target = tf.stop_gradient(self.scaled_rewards + self.td_is_not_zero * self.discount * ((1-self.dones) * self.target_R_outputs) +  tf.pow(self.discount,tf.cast(self.tds+1,tf.float32)) *  (1-self.dones) * tf.reduce_sum(self.target_Q_outputs*self.model_Q_predict_action_from_next_obs ,axis=1))	
+				target = tf.stop_gradient(self.scaled_rewards + self.td_is_not_zero * self.discount * (1-self.dones) * self.target_R_outputs +  tf.pow(self.discount,tf.cast(self.tds+1,tf.float32)) *  (1-self.dones) * tf.reduce_sum(self.target_Q_outputs*self.model_Q_predict_action_from_next_obs ,axis=1))	
 			elif self.soft_learning:
-				target = tf.stop_gradient(self.scaled_rewards + self.td_is_not_zero * self.discount * (1-self.dones) * (self.target_R_outputs + self.target_E_outputs) +  tf.pow(self.discount,tf.cast(self.tds+1,tf.float32)) *  (1-self.dones) * self.target_V)
+				target = tf.stop_gradient(self.scaled_rewards + self.td_is_not_zero * self.discount * (1-self.dones) * self.target_R_outputs +  tf.pow(self.discount,tf.cast(self.tds+1,tf.float32)) *  (1-self.dones) * self.target_V)
 			else:
 				target = tf.stop_gradient(self.scaled_rewards + self.td_is_not_zero * self.discount * (1-self.dones) * self.target_R_outputs +  tf.pow(self.discount,tf.cast(self.tds+1,tf.float32)) *  (1-self.dones) * tf.reduce_max(self.target_Q_outputs ,axis=1))
 				
@@ -177,8 +162,13 @@ class TDM_agent(Base_Agent):
 
 
 		with tf.variable_scope('R_loss'):
-
-			target = tf.stop_gradient(self.scaled_rewards +   self.discount * (1-self.dones) * self.td_is_not_zero * self.target_R_outputs)
+			if self.soft_learning:
+				log_responsible_policy_output = tf.reduce_sum((self.policy.log_policy_outputs)* self.actions,axis=1)
+				reward_est = -log_responsible_policy_output + self.scaled_rewards
+			else:
+				reward_est = self.scaled_rewards
+				
+			target = tf.stop_gradient(reward_est +   self.discount * (1-self.dones) * self.td_is_not_zero * self.target_R_outputs)
 			self.R_Loss = tf.reduce_mean(tf.square(self.model_R_outputs - target))
 
 			tf.summary.scalar('R_loss', self.R_Loss)
@@ -191,23 +181,12 @@ class TDM_agent(Base_Agent):
 			target = tf.stop_gradient((self.next_obs - self.obs) +  self.td_is_not_zero * self.target_F_outputs)
 			self.F_Loss = tf.reduce_mean(tf.square(self.model_F_outputs - target))
 
-			tf.summary.scalar('R_loss', self.F_Loss)
+			tf.summary.scalar('F_loss', self.F_Loss)
 		
 		train_op = self._get_regs_add_clip_make_optimizer(self.model_F_params,self.F_Loss,self.fnet._name)
 		self.train_ops.append(train_op)
 
-		if self.soft_learning:
-			with tf.variable_scope('E_loss'):
-
-				log_responsible_policy_output = tf.reduce_sum((self.policy.log_policy_outputs)* self.actions,axis=1)
-				target = tf.stop_gradient(-log_responsible_policy_output +   self.discount * (1-self.dones) * self.td_is_not_zero * self.target_E_outputs)
-				self.E_Loss = tf.reduce_mean(tf.square(self.model_E_outputs - target))
-
-				tf.summary.scalar('E_loss', self.E_Loss)
-			
-			train_op = self._get_regs_add_clip_make_optimizer(self.model_E_params,self.E_Loss,self.enet._name)
-			self.train_ops.append(train_op)
-	
+		
 					
 
 	def train(self):
