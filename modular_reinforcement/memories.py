@@ -123,9 +123,11 @@ class Replay_Buffer(Memory):
 
 		super(Replay_Buffer,self).__init__(n_inputs,n_outputs,**params)
 
-	def get_random_batch(self):
+	def get_random_batch(self,batch_size = None):
+		if batch_size is None:
+			batch_size = self._batch_size
 		size_adjust = (self._multi_step-1) if self._multi_step else 0
-		inds = np.random.randint(0,self._size-size_adjust,self._batch_size)
+		inds = np.random.randint(0,self._size-size_adjust,batch_size)
 		return self._get_samples(inds,self._multi_step)
 
 	def batch_ready(self):

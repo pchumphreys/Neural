@@ -51,8 +51,7 @@ def setup_logging(algorithm,expm_name,params,group=None):
 
 	params['log_dir'] = log_dir
 	params['folder_name'] = folder_name
-	print('logging in %s:' % log_dir)
-
+	
 	# Save params to log dir
 	with open(os.path.join(log_dir,'params.json'), 'w') as outfile:
 		json.dump(params, outfile)
@@ -64,7 +63,7 @@ def clear_logs():
 	if os.path.exists(base_log_dir):
 		shutil.rmtree(base_log_dir)
 
-def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode_finished_callback = None,use_AWS =False):
+def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode_finished_callback = None,persistent_to_print = [], use_AWS =False):
 
 	sess = setup_tf()
 
@@ -74,6 +73,7 @@ def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode
 		params = copy.deepcopy(params)
 
 	params = setup_logging(algorithm,expm_name,params)
+	
 	params['use_AWS'] = use_AWS
 
 	env = gym.make(params['env_name'])
@@ -82,7 +82,7 @@ def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode
 	
 	agent = load_agent(algorithm,n_inputs,n_outputs,**copy.deepcopy(params))
 
-	runner = Runner(env,agent,episode_finished_callback=episode_finished_callback,**params)
+	runner = Runner(env,agent,episode_finished_callback=lambda x : episode_finished_callback(x,persistent_to_print),**params)
 
 	if not(restore_model_path is None):
 		tf.reset_default_graph() 
@@ -107,9 +107,9 @@ def episode_finished_callback(runner):
 		plt.show()
 		plt.close()
 		
-def run_expm(algorithm,expm_name,params = None, runner=None, episode_finished_callback = None,use_AWS =False):
+def run_expm(algorithm,expm_name,params = None, runner=None, episode_finished_callback = None,persistent_to_print=[],use_AWS =False,restore_model_path=None):
 	if runner is None:
-		runner = setup_expm(algorithm,expm_name,params = None,episode_finished_callback = episode_finished_callback,use_AWS =use_AWS)
+		runner = setup_expm(algorithm,expm_name,params = None,episode_finished_callback = episode_finished_callback,persistent_to_print=persistent_to_print,use_AWS =use_AWS,restore_model_path=restore_model_path)
 
 	runner.run()
 	if not(runner.log_dir is None):
@@ -160,7 +160,7 @@ def grid_search(algorithm,expm_name,grid_params,params=None,runs_per_point = 3):
 
 	return rewards
 	
-def sweep_test_cases(algorithm,expm_name,test_case_params,params = None,runs_per_point = 3,episode_finished_callback=episode_finished_callback,use_AWS=False):
+def sweep_test_cases(algorithm,expm_name,test_case_params,params = None,runs_per_point = 3,episode_finished_callback=episode_finished_callback, use_AWS=False):
 	
 	if params is None:
 		params = load_expm_params(algorithm,expm_name)
@@ -177,44 +177,53 @@ def sweep_test_cases(algorithm,expm_name,test_case_params,params = None,runs_per
 	max_episodes = params['runner_params']['max_episodes']
 	rewards = np.zeros((len(test_case_params),runs_per_point,max_episodes))
 	
-	for i,(test_name,test) in enumerate(iter(test_case_params.items())):
-		test_params = copy.deepcopy(params)
-		for cat, items in iter(test.items()):
-			if cat == 'network_spec':
-				test_params[cat] = items
-			else:
-				for item, values in iter(items.items()):
-					test_params[cat][item] = values
+			
+	for j in range(runs_per_point):
+			
+		for i,(test_name,test) in enumerate(iter(test_case_params.items())):
+			test_params = copy.deepcopy(params)
+			for cat, items in iter(test.items()):
+				if cat == 'network_spec':
+					test_params[cat] = items
+				else:
+					for item, values in iter(items.items()):
+						test_params[cat][item] = values
 
+				if not((j == 0) and (i == 0)):
+					persistent_to_print = [('Testing %s, run %d' % (test_name,j)),make_sweep_fig(test_case_params.keys(),rewards[:,:(j+1),:])]
+				else:
+					persistent_to_print = [('Testing %s, run %d' % (test_name,j))]
+				
+				
+				runner = run_expm(algorithm,expm_name, params = test_params,episode_finished_callback= episode_finished_callback, persistent_to_print=persistent_to_print,use_AWS=use_AWS)
+				rewards[i,j] = runner.episode_rewards
 
-		persistent_to_print = [('Testing %s' % (test_name)),test_params]
-		
-		for j in range(runs_per_point):
-			runner = run_expm(algorithm,expm_name, params = test_params,episode_finished_callback= (lambda x: episode_finished_callback(x, persistent_to_print)),use_AWS=use_AWS)
-			rewards[i,j] = runner.episode_rewards
+				rewards.tofile(os.path.join(log_dir,'rewards.txt'), sep="\t", format="%s")
 
-			np.savetxt(os.path.join(log_dir,'rewards.csv'),rewards)
-	
+			
+
 	if use_AWS:
 		uf.aws_save_to_bucket(self.log_dir,self.params['folder_name'])
 
-	labels = test_case_params.keys()
+	display(make_sweep_fig(test_case_params.keys(),rewards))
 
+	return rewards
+
+def make_sweep_fig(labels,rewards):
 	x = range(np.shape(rewards)[-1])
 	ys = np.mean(rewards,axis=1)
 	errors = np.std(rewards,axis=1)
 
+	fig = plt.figure()
 	for y,error,lr in zip(ys,errors,labels):
 		plt.plot(x, y, '-',label=lr)
 		plt.fill_between(x, y-error, y+error,alpha=0.2)
 	plt.xlabel('Episode')
 	plt.ylabel('Reward')
 	plt.legend()
-	plt.show()
-	plt.close()
 
-	return rewards
-
+	return fig
+	
 
 
 	

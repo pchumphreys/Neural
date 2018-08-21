@@ -19,7 +19,7 @@ class TDM_agent(Base_Agent):
 		self.lr = params['agent_params'].pop('lr',1e-3)
 		self.discount = params['agent_params'].pop('discount',1e-3)
 		self.tau = params['agent_params'].pop('tau',1e-3)
-		self.max_td = params['agent_params'].pop('max_td',3)
+		self.max_td = params['agent_params'].pop('max_td',0)
 
 		self.soft_learning = params['agent_params'].pop('soft_learning',False)
 		self.reward_scale = params['agent_params'].pop('reward_scale',1.0)
@@ -118,8 +118,10 @@ class TDM_agent(Base_Agent):
 	def _init_placeholders(self):
 		
 		self.actions = tf.placeholder(tf.float32,shape = [None,self.n_outputs],name = 'actions')
-		self.obs = tf.placeholder(tf.float32,shape = [None,self.n_inputs],name = 'observations')
-		self.next_obs = tf.placeholder(tf.float32,shape = [None,self.n_inputs],name = 'next_observations')
+		self.raw_obs = tf.placeholder(tf.float32,shape = [None,self.n_inputs],name = 'observations')
+		self.obs = self.raw_obs/255
+		self.raw_next_obs = tf.placeholder(tf.float32,shape = [None,self.n_inputs],name = 'next_observations')
+		self.next_obs = self.raw_next_obs/255
 		self.rewards = tf.placeholder(tf.float32,shape = [None],name = 'rewards')
 		self.dones = tf.placeholder(tf.float32,shape = [None],name = 'dones')
 		
@@ -134,8 +136,8 @@ class TDM_agent(Base_Agent):
 
 	def _construct_feed_dict(self,samples):
 		return {self.actions : samples['actions'],
-				self.obs : samples['obs'],
-				self.next_obs : samples['next_obs'],
+				self.raw_obs : samples['obs'],
+				self.raw_next_obs : samples['next_obs'],
 				self.dones : samples['dones'],
 				self.rewards : samples['rewards'],
 				self.tds : samples['tds']}
@@ -198,6 +200,7 @@ class TDM_agent(Base_Agent):
 				
 				samples['tds'] = np.random.randint(0,self.max_td,size = self.rb._batch_size)
 				losses = self._train(samples,self.loss_ops)
+
 
 			if self.extra_q_train_steps_per_t:
 				for j in range(self.extra_q_train_steps_per_t):

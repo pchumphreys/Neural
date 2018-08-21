@@ -28,7 +28,8 @@ class Base_Agent():
 
         gradients, variables = zip(*self.optimizer.compute_gradients(loss + regularization_loss,var_list = params))
         if self.clip_gradients:
-            gradients, _ = tf.clip_by_global_norm(gradients, self.clip_gradients)
+            gradients, grad_norms = tf.clip_by_global_norm(gradients, self.clip_gradients)
+        tf.summary.scalar('grad_norms', grad_norms)
         return self.optimizer.apply_gradients(zip(gradients, variables))
 
                     
@@ -39,16 +40,22 @@ class Base_Agent():
         if self.logging:
             _,summary,returns =  tf.get_default_session().run([self.train_ops,self.merged, args[0]], feed_dict = feed_dict)
             self.writer.add_summary(summary,self.train_steps)
-            return returns
+
         else:
             _,returns =  tf.get_default_session().run([self.train_ops, args[0]], feed_dict = feed_dict)
-            return returns
+      
 
         self.train_steps += 1
+        return returns
 
-    def episode_finished(self):
+    def episode_finished(self,episode_reward):
         if self.logging:
+            summary = tf.Summary(value=[
+                    tf.Summary.Value(tag="Episode rewards", simple_value=episode_reward)])
+            self.writer.add_summary(summary,self.train_steps)
             self.writer.flush()
+            
+         
 
     
     def get_action(self,obs,optimal_action = False):

@@ -59,5 +59,7 @@ class MLP():
 		size = layer_spec.pop('size')
 		reg_weight = layer_spec.pop('reg_weight',None)
 		regularizer = None if (reg_weight is None) else slim.l2_regularizer(reg_weight)
-		return slim.fully_connected(inputs,size,scope=scope,activation_fn=activation_fn,weights_regularizer=regularizer)
+		out = slim.fully_connected(inputs,size,scope=scope,activation_fn=activation_fn,weights_regularizer=regularizer)
+		return tf.contrib.layers.layer_norm(inputs,scope=scope+'_bn')
+
 		

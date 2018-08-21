@@ -75,8 +75,10 @@ class DQN_agent(Base_Agent):
 	def _init_placeholders(self):
 		
 		self.actions = tf.placeholder(tf.float32,shape = [None,self.n_outputs],name = 'actions')
-		self.obs = tf.placeholder(tf.float32,shape = [None,self.n_inputs],name = 'observations')
-		self.next_obs = tf.placeholder(tf.float32,shape = [None,self.n_inputs],name = 'next_observations')
+		self.raw_obs = tf.placeholder(tf.float32,shape = [None,self.n_inputs],name = 'observations')
+		self.obs = self.raw_obs /255
+		self.raw_next_obs = tf.placeholder(tf.float32,shape = [None,self.n_inputs],name = 'next_observations')
+		self.next_obs = self.raw_next_obs/255
 		self.rewards = tf.placeholder(tf.float32,shape = [None],name = 'rewards')
 		self.dones = tf.placeholder(tf.float32,shape = [None],name = 'dones')
 
@@ -84,8 +86,8 @@ class DQN_agent(Base_Agent):
 		
 	def _construct_feed_dict(self,samples):
 		return {self.actions : samples['actions'],
-				self.obs : samples['obs'],
-				self.next_obs : samples['next_obs'],
+				self.raw_obs : samples['obs'],
+				self.raw_next_obs : samples['next_obs'],
 				self.dones : samples['dones'],
 				self.rewards : samples['rewards']}
 
@@ -121,7 +123,7 @@ class DQN_agent(Base_Agent):
 				samples = self.rb.get_random_batch()
 				if self.multi_step:
 					samples['rewards'] = uf.calc_discount(samples['rewards'],self.discount,axis=1)[:,0]
-				losses = self._train(samples,self.Q_Loss)
+				losses = self._train(samples,[self.Q_Loss])
 		else:
 			losses = False
 		return losses

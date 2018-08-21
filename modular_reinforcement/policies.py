@@ -33,7 +33,7 @@ class Base_Policy_Discrete():
     def get_actions(self,obs,optimal_action = False):
         
         if optimal_action:
-            return self.optimal_policy.eval(feed_dict = {self.inputs : [obs]})
+            return self.optimal_policy.eval(feed_dict = {self.inputs : [obs]})[0]
 
         else:
             if self.action_choice == 'Boltzmann':
