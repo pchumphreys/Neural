@@ -14,6 +14,7 @@ import shutil
 from agents import load_agent, load_expm_params
 from dqn_agent import DQN_agent
 from runner import Runner
+import atari_wrappers
 import argparse
 
 base_log_dir = os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),'tensorflow/logs/reinforcement_learning')
@@ -70,6 +71,8 @@ def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode
 	params['use_AWS'] = use_AWS
 
 	env = gym.make(params['env_name'])
+	if params.get('atari_env',False):
+		env = atari_wrappers.wrap_dqn(env)
 
 	n_inputs = env.observation_space.shape
 	n_outputs = env.action_space.n

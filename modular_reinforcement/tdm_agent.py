@@ -7,6 +7,8 @@ from value_functions import Qnet
 from policies import Policy_Discrete_for_Qnet
 from memories import Replay_Buffer
 
+
+
 class TDM_agent(Base_Agent):
 	# This class handles the training of the networks
 	def __init__(self,n_inputs,n_outputs,**params):

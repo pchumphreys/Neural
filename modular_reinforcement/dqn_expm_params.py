@@ -4,14 +4,14 @@ expm_params = {
 	 'env_name' : 'CartPole-v1',
 	 'agent_params' : dict(
 		lr = 1e-3,
-		tau = 0.001,
+		tau = 0.0001,
 		discount = 0.99,
-		double = True,
+		double = False,
         huber_loss = True,
         clip_gradients =  3.0,
         train_steps_per_t = 1,
-        soft_learning = False,
-        reward_scale = 2.0,
+        soft_learning = True,
+        reward_scale = 1.0,
         multi_step = 1,
 	 ),
 	 'policy_params' : dict(
@@ -20,13 +20,13 @@ expm_params = {
 	 'replay_buffer_params' : dict(
 		batch_size = 64,
 		max_size = 10000,
-		min_pool_size = 1000,
+		min_pool_size = 100,
 	 ),
 	 'runner_params' : dict(
 	 	max_episodes = 400,
 		max_episode_length = 300,
 	  ),
-	 'network_spec' : 2*[dict(type = 'dense',size=32,reg_weight=0.001)]
+	 'network_spec' : 2*[dict(type = 'dense',size=8,reg_weight=0.0001)]
 	},
 
 	'LunarLander' : 
@@ -34,11 +34,11 @@ expm_params = {
 	 'env_name' : 'LunarLander-v2',
 	 'agent_params' : dict(
 		lr = 1e-3,
-		tau = 0.01,
+		tau = 0.0001,
 		discount = 0.99,
 		double = False,
         huber_loss = True,
-        clip_gradients =  5.0,
+        clip_gradients =  2.0,
         train_steps_per_t = 1,
         soft_learning = True,
         reward_scale = 1.0,
@@ -48,7 +48,7 @@ expm_params = {
 		action_choice = 'Boltzmann',
 	 ),
 	 'replay_buffer_params' : dict(
-		batch_size = 64,
+		batch_size = 128,
 		max_size = 100000,
 		min_pool_size = 1000,
 	 ),
@@ -56,7 +56,7 @@ expm_params = {
 	 	max_episodes = 200,
 		max_episode_length = -1,
 	  ),
-	 'network_spec' : 2*[dict(type = 'dense',size=20)]
+	 'network_spec' : 2*[dict(type = 'dense',size=20,reg_weight=0.01)]
 	},
 
 
@@ -91,7 +91,8 @@ expm_params = {
 	
 	'Breakout' : 
 	{
-	 'env_name' : 'Breakout-v0',
+	 'env_name' : 'Breakout-v4',
+	 'atari_env' : True,
 	 'agent_params' : dict(
 		lr = 1e-3,
 		tau = 0.0001,
@@ -110,7 +111,7 @@ expm_params = {
 	 ),
 	 'replay_buffer_params' : dict(
 		batch_size = 128,
-		max_size = 1000000,
+		max_size = 100000,
 		min_pool_size =1000,
 	 ),
 	 'runner_params' : dict(

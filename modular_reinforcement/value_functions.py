@@ -1,6 +1,5 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-import tensorflow_hub as hub
 import numpy as np
 
 from mlp import MLP

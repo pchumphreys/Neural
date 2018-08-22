@@ -10,6 +10,7 @@ import util_functions as uf
 class Runner():
 	def __init__(self,env,agent,**params):
 		self.env = env
+		
 		self.agent = agent
 		self.params = copy.deepcopy(params)
 

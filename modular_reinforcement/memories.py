@@ -8,8 +8,13 @@ class Memory():
 		self._max_size = int(params.pop('max_size',1e4))
 		self._loop_when_full = params.pop('loop_when_full',False)
 		self._discrete_action = params.pop('discrete_action',False)
-		self.n_outputs = n_outputs
 		self.n_inputs = [n_inputs] if not(isinstance(n_inputs,list)) else n_inputs
+		self._dtype_obs,obs_dim = params.pop('dtype_obs',(np.float32,tuple(self.n_inputs)))
+		
+		self.n_outputs = n_outputs
+		
+		dt = np.dtype([('action', np.float32, self.n_outputs), ('obs', self._dtype_obs, obs_dim), ('next_obs', self._dtype_obs, obs_dim), ('reward', np.float32), ('done', np.bool_)])
+		self._memory = np.empty(self._max_size, dtype=dt)
 		
 		self.reset()
 		
@@ -17,34 +22,16 @@ class Memory():
 		self._size = 0
 		self._pos = -1
 		
-		self.actions = np.zeros([self._max_size,self.n_outputs])
-		self.obs = np.zeros([self._max_size]+self.n_inputs)
-		self.next_obs = np.zeros([self._max_size]+self.n_inputs)
-		self.rewards = np.zeros(self._max_size)
-		self.dones = np.zeros(self._max_size)
-		
-
 	def add_sample(self,action,obs,next_obs,reward,done):
 		self._advance()
-
-		if self._discrete_action == True:
-			assert(not(isinstance(action,list)))
-			action = np.eye(self.n_outputs)[action]
-		else:
-			assert(len(action)==self.n_outputs)
-
-		self.actions[self._pos] = action
-		self.obs[self._pos] = obs
-		self.next_obs[self._pos] = next_obs
-		self.rewards[self._pos] = reward
-		self.dones[self._pos] = done
+		self._memory[self._pos] = (action,obs,next_obs,reward,done)
 		
 
 	def is_full(self):
 		return self._size == self._max_size
 
 	def last_sample_done(self):
-		return self.dones[self._pos] == True
+		return self._memory[self._pos]['done'] == True
 
 	def _advance(self):
 		if self._loop_when_full:
@@ -57,53 +44,39 @@ class Memory():
 		if self._size < self._max_size:
 			self._size += 1
 			
-	def _get_samples(self,inds =  None):
-		if inds is None:
-
-			return dict(actions = self.actions[:self._size],
-				   obs = self.obs[:self._size],
-				   next_obs = self.next_obs[:self._size],
-				   rewards = self.rewards[:self._size],
-				   dones = self.dones[:self._size])
-		else:
-			
-			return dict(actions = self.actions[inds],
-					   obs = self.obs[inds],
-					   next_obs = self.next_obs[inds],
-					   rewards = self.rewards[inds],
-					   dones = self.dones[inds])
-
+	
 	def _get_samples(self,inds =  None,multi_step =False):
 
 		if multi_step:
 			return self._get_multi_step_samples(inds,multi_step)
 
 		elif inds is None:
-
-			return dict(actions = self.actions[:self._size],
-				   obs = self.obs[:self._size],
-				   next_obs = self.next_obs[:self._size],
-				   rewards = self.rewards[:self._size],
-				   dones = self.dones[:self._size])
+			return dict(actions = self._memory['action'],
+				   obs = [np.asarray(obs) for obs in self._memory['obs']],
+				   next_obs = [np.asarray(obs) for obs in self._memory['next_obs']],
+				   rewards = self._memory['reward'],
+				   dones = self._memory['done'])
 		else:
+			entries = self._memory[inds]
 			
-			return dict(actions = self.actions[inds],
-					   obs = self.obs[inds],
-					   next_obs = self.next_obs[inds],
-					   rewards = self.rewards[inds],
-					   dones = self.dones[inds])
+			return dict(actions = entries['action'],
+				   obs = [np.asarray(obs) for obs in entries['obs']],
+				   next_obs = [np.asarray(obs) for obs in entries['next_obs']],
+				   rewards = entries['reward'],
+				   dones = entries['done'])
+
+
 
 	def _get_multi_step_samples(self,inds,multi_step):
 		to_get_inds = np.expand_dims(inds,1) + np.tile(np.arange(multi_step),(np.shape(inds)[0],1))
-		final_step_inds = to_get_inds[:,-1]
-		dones = self.dones[to_get_inds]
-		rewards = self.rewards[to_get_inds] * uf.mask_rewards_using_dones(dones,axis=1) # Only keep rewards up to done
-		dones = np.sum(self.dones[to_get_inds],1) # Finally, signal done if any within are done
-		return dict(actions = self.actions[inds],
-			   obs = self.obs[inds],
-			   next_obs = self.next_obs[final_step_inds],
-			   rewards = rewards, # Note that rewards is still large, since need to apply discount appropriately.
-			   dones = dones)
+		entries = self._memory[to_get_inds]
+		rewards = entries['reward'] * uf.mask_rewards_using_dones(entries['done'],axis=1) # Only keep rewards up to done
+		dones = np.sum(entries['done'],1) # Finally, signal done if any within are done
+		return dict(actions = entries[0]['action'],
+				   obs = [np.asarray(obs) for obs in entries[0]['obs']],
+				   next_obs = [np.asarray(obs) for obs in entries[-1]['next_obs']],
+				   rewards = rewards,
+				   dones = dones)
 
 	def get_last_sample(self):
 		ind = [self._pos]

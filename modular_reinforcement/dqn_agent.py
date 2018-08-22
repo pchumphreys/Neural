@@ -6,6 +6,7 @@ from base_agent import Base_Agent
 from value_functions import Qnet
 from policies import Policy_Discrete_for_Qnet
 from memories import Replay_Buffer
+import atari_wrappers
 
 class DQN_agent(Base_Agent):
 	# This class handles the training of the networks
@@ -13,8 +14,9 @@ class DQN_agent(Base_Agent):
 
 		super(DQN_agent,self).__init__(**params)
 		
-		self.n_inputs = n_inputs
+		self.n_inputs = list(n_inputs)
 		self.n_outputs = n_outputs
+		self._discrete_action=True
 
 		self.lr = params['agent_params'].pop('lr',1e-3)
 		self.discount = params['agent_params'].pop('discount',1e-3)
@@ -32,14 +34,8 @@ class DQN_agent(Base_Agent):
 
 		assert not(self.soft_learning and self.double)
 		
-		self.image_obs = params['agent_params'].pop('image_obs',False)
-		self.image_buffer_frames  = params['agent_params'].pop('image_buffer_frames',1)
-		if self.image_obs:
-			params['replay_buffer_params']['image_obs'] = True
-			params['replay_buffer_params']['image_buffer_frames'] = self.image_buffer_frames
-			self.n_inputs = [80,80,self.image_buffer_frames]
-			self.frames_since_done = 0
-			self.current_obs_frame_cat = np.zeros(self.n_inputs)
+		if 'atari_env' in params and params['atari_env']:
+			params['replay_buffer_params']['dtype_obs']=(atari_wrappers.LazyFrames,1)
 
 		self._init_placeholders()
 		
@@ -68,7 +64,7 @@ class DQN_agent(Base_Agent):
 
 		self.policy = Policy_Discrete_for_Qnet(self.qnet,**params['policy_params'])
 
-		self.rb = Replay_Buffer(self.n_inputs,self.n_outputs,discrete_action=True,multi_step = self.multi_step ,**params['replay_buffer_params'])
+		self.rb = Replay_Buffer(self.n_inputs,self.n_outputs,multi_step = self.multi_step ,**params['replay_buffer_params'])
 	
 		self.optimizer = tf.train.AdamOptimizer(learning_rate = self.lr)
 		
@@ -138,40 +134,14 @@ class DQN_agent(Base_Agent):
 		return losses
 
 	def add_sample(self,action,current_obs,next_obs,reward,done):
-		if self.image_obs:
-			self.add_image_sample(action,current_obs,next_obs,reward,done)
+
+		if self._discrete_action == True:
+			assert(not(isinstance(action,list)))
+			action = np.eye(self.n_outputs)[action]
 		else:
-			self.rb.add_sample(action,self.pre_process_obs(current_obs),self.pre_process_obs(next_obs),reward,done)
+			assert(len(action)==self.n_outputs)
 
-
-	def add_image_sample(self,action,current_obs,next_obs,reward,done):
-		
-		self.frames_since_done += 1
-		if self.frames_since_done == 1:
-			self.current_obs_frame_cat[:,:,-1] = np.squeeze(self.current_obs)
-
-		next_obs_frame_cat = np.concatenate((self.current_obs_frame_cat[:,:,1:],uf.preprocess_image_obs(next_obs)),axis=2)
-		if self.frames_since_done >= self.image_buffer_frames:
-			self.rb.add_sample(action,self.current_obs_frame_cat,next_obs_frame_cat,reward,done)
-		self.current_obs_frame_cat = next_obs_frame_cat
-		if done:
-			self.frames_since_done = 0
-
-	def pre_process_obs_for_action(self,obs):
-		if self.image_obs:
-			if self.frames_since_done >= self.image_buffer_frames:
-				return self.current_obs_frame_cat # already has obs from last step
-			elif self.frames_since_done == 0:
-				self.current_obs = uf.preprocess_image_obs(obs) # process here, save for add image sample
-				return np.tile(self.current_obs,[1,1,self.image_buffer_frames])
-			else: 
-				
-				return np.concatenate((np.tile(np.expand_dims(self.current_obs_frame_cat[:,:,-(self.frames_since_done+1)],axis=2),[1,1,(self.image_buffer_frames - self.frames_since_done)])
-					,self.current_obs_frame_cat[:,:,-(self.frames_since_done):]),axis=2)
-		else:
-			return obs
-
-
+		self.rb.add_sample(action,current_obs,next_obs,reward,done)
 
 
 			 
