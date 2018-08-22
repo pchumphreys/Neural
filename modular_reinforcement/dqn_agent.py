@@ -32,6 +32,12 @@ class DQN_agent(Base_Agent):
 
 		assert not(self.soft_learning and self.double)
 		
+		self.image_obs = params.pop('image_obs',False)
+		self.image_buffer_frames  = params.pop('image_buffer_frames',1)
+		if self.image_obs:
+			params['replay_buffer_params']['image_obs'] = True
+			params['replay_buffer_params']['image_buffer_frames'] = self.image_buffer_frames
+
 		self._init_placeholders()
 
 		self.qnet = Qnet(self.obs,self.n_outputs,params['network_spec'],scope='qnet')
@@ -73,12 +79,14 @@ class DQN_agent(Base_Agent):
 		self._finish_agent_setup()
 
 	def _init_placeholders(self):
-		
+		if self.image_obs:
+			n_inputs = [n_inputs,self.image_buffer_frames]
+		else:
+			n_inputs = [self.n_inputs]
+
 		self.actions = tf.placeholder(tf.float32,shape = [None,self.n_outputs],name = 'actions')
-		self.raw_obs = tf.placeholder(tf.float32,shape = [None,self.n_inputs],name = 'observations')
-		self.obs = self.raw_obs /255
-		self.raw_next_obs = tf.placeholder(tf.float32,shape = [None,self.n_inputs],name = 'next_observations')
-		self.next_obs = self.raw_next_obs/255
+		self.obs = tf.placeholder(tf.float32,shape = [None]+n_inputs,name = 'observations')
+		self.next_obs = tf.placeholder(tf.float32,shape = [None]+ n_inputs,name = 'next_observations')
 		self.rewards = tf.placeholder(tf.float32,shape = [None],name = 'rewards')
 		self.dones = tf.placeholder(tf.float32,shape = [None],name = 'dones')
 
@@ -86,8 +94,8 @@ class DQN_agent(Base_Agent):
 		
 	def _construct_feed_dict(self,samples):
 		return {self.actions : samples['actions'],
-				self.raw_obs : samples['obs'],
-				self.raw_next_obs : samples['next_obs'],
+				self.obs : samples['obs'],
+				self.next_obs : samples['next_obs'],
 				self.dones : samples['dones'],
 				self.rewards : samples['rewards']}
 
@@ -130,6 +138,8 @@ class DQN_agent(Base_Agent):
 
 	def add_sample(self,action,current_obs,next_obs,reward,done):
 		self.rb.add_sample(action,current_obs,next_obs,reward,done)
+
+
 
 
 			 

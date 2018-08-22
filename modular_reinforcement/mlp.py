@@ -31,6 +31,10 @@ class MLP():
 			for i,layer in enumerate(self.layer_spec):
 				if layer['type'] == 'dense':
 					outputs = self.make_dense_layer(outputs,i,**layer)
+				elif layer['type'] == 'conv2d':
+					outputs = self.make_conv2d_layer(outputs,i,**layer)
+				elif layer['type'] == 'flatten':
+					outputs = self.make_flatten_layer(outputs,i,**layer)
 				elif layer['type'] in self.layer_callbacks:
 					outputs = self.layer_callbacks[layer['type']](outputs,i,**layer)
 				else:
@@ -60,6 +64,23 @@ class MLP():
 		reg_weight = layer_spec.pop('reg_weight',None)
 		regularizer = None if (reg_weight is None) else slim.l2_regularizer(reg_weight)
 		out = slim.fully_connected(inputs,size,scope=scope,activation_fn=activation_fn,weights_regularizer=regularizer)
-		return tf.contrib.layers.layer_norm(inputs,scope=scope+'_bn')
+		return tf.contrib.layers.layer_norm(out,scope=scope+'_ln')
+
+	def make_conv2d_layer(self,inputs,layer_number,**layer_spec):
+		
+		activation_fn = layer_spec.pop('activation_fn',tf.nn.relu)
+		scope = layer_spec.pop('scope','conv_' + str(layer_number))
+		kernel = layer_spec.pop('kernel')
+		size = layer_spec.pop('size')
+		stride = layer_spec.pop('stride',1)
+		padding = layer_spec.pop('padding',"VALID")
+		reg_weight = layer_spec.pop('reg_weight',None)
+		regularizer = None if (reg_weight is None) else slim.l2_regularizer(reg_weight)
+		out = slim.conv2d(inputs, size, kernel, stride=stride,scope=scope,activation_fn=activation_fn,weights_regularizer=regularizer,padding=padding)
+		return tf.contrib.layers.layer_norm(out,scope=scope+'_ln')
+
+	def make_flatten_layer(self,inputs,layer_number,**layer_spec):
+		scope = layer_spec.pop('scope','flat_' + str(layer_number))
+		return slim.flatten(inputs)
 
 		

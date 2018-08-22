@@ -91,9 +91,9 @@ expm_params = {
 	
 	'Breakout' : 
 	{
-	 'env_name' : 'Breakout-ram-v0',
+	 'env_name' : 'Breakout-v0',
 	 'agent_params' : dict(
-		lr = 1e-4,
+		lr = 1e-3,
 		tau = 0.0001,
 		discount = 0.99,
 		double = False,
@@ -101,21 +101,27 @@ expm_params = {
         huber_loss = True,
         clip_gradients =  3.0,
         train_steps_per_t = 1,
-        reward_scale = 1.0
+        reward_scale = 1.0,
+        image_obs = True,
+        image_buffer_frames = 2
 	 ),
 	 'policy_params' : dict(
 		action_choice = 'Boltzmann',
 	 ),
 	 'replay_buffer_params' : dict(
-		batch_size = 64,
+		batch_size = 128,
 		max_size = 1000000,
 		min_pool_size =1000,
 	 ),
 	 'runner_params' : dict(
-	 	max_episodes = 10000,
+	 	max_episodes = 20000,
 		max_episode_length = -1,
 	  ),
-	 'network_spec' : 4*[dict(type = 'dense',size=128,reg_weight=0.001)]
+	 'network_spec' : ([dict(type = 'conv2d', size = 32, kernel = [8,8],stride = 4),
+	 				    dict(type = 'conv2d', size = 64, kernel = [4,4],stride = 2),
+	 				    dict(type = 'conv2d', size = 64, kernel = [3,3],stride = 1),
+	 				    dict(type = 'flatten')]
+	 				  +[dict(type = 'dense',size=512,reg_weight=0.001)])
 	},
 
 

@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
+import tensorflow_hub as hub
 import numpy as np
 
 from mlp import MLP
@@ -23,3 +24,12 @@ class Qnet_advantage(MLP):
 			adv = slim.fully_connected(streamA,self.output_size,activation_fn=None)
 			val = slim.fully_connected(streamV,1,activation_fn=None)
 			return val + adv - tf.reduce_mean(adv,axis=1,keep_dims=True)
+
+
+class Qnet(MLP):
+	# Make a simple q network
+	def __init__(self,obs,action_size,layer_spec,scope='qNet'):
+		# Ok so Q function takes s, gives Q(a|s) 
+		# Super is used to call the init method of the parent class
+		super(Qnet,self).__init__(scope,obs,action_size,layer_spec)
+

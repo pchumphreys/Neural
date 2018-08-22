@@ -6,6 +6,8 @@ import os
 import copy
 import json
 from matplotlib import pyplot as plt
+from matplotlib.figure import Figure
+import util_functions as uf
 import datetime
 import shutil
 
@@ -16,15 +18,6 @@ import argparse
 
 base_log_dir = os.path.join(os.getenv('TEST_TMPDIR', '/tmp'),'tensorflow/logs/reinforcement_learning')
 	
-if __name__ == "__main__":
-
-	parser = argparse.ArgumentParser("Reinforcement experiment")
-	parser.add_argument("expm_name", help="The name of the experiment to run", type=str)
-	parser.add_argument("algorithm", help="The name of the algorithm to run", type=str)
-	args = parser.parse_args()
-
-	run_expm(args.algorithm,args.expm_name)
-
 def setup_tf():
 	tf.reset_default_graph() # THIS IS NECESSARY BEFORE MAKING NEW SESSION TO STOP IT ERRORING!!
 
@@ -94,20 +87,19 @@ def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode
 
 	return runner
 
-def episode_finished_callback(runner):
+def episode_finished_callback(runner,persistent_to_print=[]):
 	if runner.episodes % 10 == 0:
+		for pp in persistent_to_print:
+			if isinstance(ptp,Figure):
+				display(ptp)
+			else:
+				print(ptp)
 		print('Average reward at episode %d : %d' % (runner.episodes,np.mean(runner.episode_rewards[-100:])))
 		print('Avg sample time is %f (ms)' % (1000*runner.avg_sample_time))
 		print('Avg train time is %f (ms)' % ((runner.global_trains/runner.global_t)*(1000*runner.avg_train_time)))
 						
-		plt.figure(figsize=[4,3])
-		plt.plot(runner.episode_rewards)
-		plt.xlabel('Episode')
-		plt.ylabel('Rewards')
-		plt.show()
-		plt.close()
 		
-def run_expm(algorithm,expm_name,params = None, runner=None, episode_finished_callback = None,persistent_to_print=[],use_AWS =False,restore_model_path=None):
+def run_expm(algorithm,expm_name,params = None, runner=None, episode_finished_callback = episode_finished_callback,persistent_to_print=[],use_AWS =False,restore_model_path=None):
 	if runner is None:
 		runner = setup_expm(algorithm,expm_name,params = None,episode_finished_callback = episode_finished_callback,persistent_to_print=persistent_to_print,use_AWS =use_AWS,restore_model_path=restore_model_path)
 
@@ -223,7 +215,18 @@ def make_sweep_fig(labels,rewards):
 	plt.legend()
 
 	return fig
-	
+
+
+if __name__ == "__main__":
+
+	parser = argparse.ArgumentParser("Reinforcement experiment")
+	parser.add_argument("--expm_name", help="The name of the experiment to run", type=str)
+	parser.add_argument("--algorithm", help="The name of the algorithm to run", type=str)
+	parser.add_argument("--use_AWS",type=bool)
+	args = parser.parse_args()
+
+	run_expm(args.algorithm,args.expm_name,use_AWS=args.use_AWS)
+
 
 
 	

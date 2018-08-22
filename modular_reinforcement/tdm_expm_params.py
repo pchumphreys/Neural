@@ -65,7 +65,7 @@ expm_params = {
 	 'env_name' : 'Breakout-ram-v0',
 	 'agent_params' : dict(
 		lr = 1e-4,
-		tau = 0.0001,
+		tau = 0.001,
 		discount = 0.99,
 		max_td = 1,
 		double = False,
@@ -88,7 +88,7 @@ expm_params = {
 	 	max_episodes = 10000,
 		max_episode_length = -1,
 	  ),
-	 'network_spec' : 2*[dict(type = 'dense',size=128,reg_weight=0.001)]
+	 'network_spec' : 4*[dict(type = 'dense',size=128,reg_weight=0.001)]
 	},
 
 	}
