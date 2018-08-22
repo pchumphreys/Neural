@@ -32,14 +32,17 @@ class DQN_agent(Base_Agent):
 
 		assert not(self.soft_learning and self.double)
 		
-		self.image_obs = params.pop('image_obs',False)
-		self.image_buffer_frames  = params.pop('image_buffer_frames',1)
+		self.image_obs = params['agent_params'].pop('image_obs',False)
+		self.image_buffer_frames  = params['agent_params'].pop('image_buffer_frames',1)
 		if self.image_obs:
 			params['replay_buffer_params']['image_obs'] = True
 			params['replay_buffer_params']['image_buffer_frames'] = self.image_buffer_frames
+			self.n_inputs = [80,80,self.image_buffer_frames]
+			self.frames_since_done = 0
+			self.current_obs_frame_cat = np.zeros(self.n_inputs)
 
 		self._init_placeholders()
-
+		
 		self.qnet = Qnet(self.obs,self.n_outputs,params['network_spec'],scope='qnet')
 		self.model_Q_params = self.qnet.get_params_internal()
 		self.model_Q_outputs = self.qnet.outputs
@@ -78,15 +81,13 @@ class DQN_agent(Base_Agent):
 
 		self._finish_agent_setup()
 
+
+
 	def _init_placeholders(self):
-		if self.image_obs:
-			n_inputs = [n_inputs,self.image_buffer_frames]
-		else:
-			n_inputs = [self.n_inputs]
 
 		self.actions = tf.placeholder(tf.float32,shape = [None,self.n_outputs],name = 'actions')
-		self.obs = tf.placeholder(tf.float32,shape = [None]+n_inputs,name = 'observations')
-		self.next_obs = tf.placeholder(tf.float32,shape = [None]+ n_inputs,name = 'next_observations')
+		self.obs = tf.placeholder(tf.float32,shape = [None]+self.n_inputs,name = 'observations')
+		self.next_obs = tf.placeholder(tf.float32,shape = [None]+ self.n_inputs,name = 'next_observations')
 		self.rewards = tf.placeholder(tf.float32,shape = [None],name = 'rewards')
 		self.dones = tf.placeholder(tf.float32,shape = [None],name = 'dones')
 
@@ -137,7 +138,38 @@ class DQN_agent(Base_Agent):
 		return losses
 
 	def add_sample(self,action,current_obs,next_obs,reward,done):
-		self.rb.add_sample(action,current_obs,next_obs,reward,done)
+		if self.image_obs:
+			self.add_image_sample(action,current_obs,next_obs,reward,done)
+		else:
+			self.rb.add_sample(action,self.pre_process_obs(current_obs),self.pre_process_obs(next_obs),reward,done)
+
+
+	def add_image_sample(self,action,current_obs,next_obs,reward,done):
+		
+		self.frames_since_done += 1
+		if self.frames_since_done == 1:
+			self.current_obs_frame_cat[:,:,-1] = np.squeeze(self.current_obs)
+
+		next_obs_frame_cat = np.concatenate((self.current_obs_frame_cat[:,:,1:],uf.preprocess_image_obs(next_obs)),axis=2)
+		if self.frames_since_done >= self.image_buffer_frames:
+			self.rb.add_sample(action,self.current_obs_frame_cat,next_obs_frame_cat,reward,done)
+		self.current_obs_frame_cat = next_obs_frame_cat
+		if done:
+			self.frames_since_done = 0
+
+	def pre_process_obs_for_action(self,obs):
+		if self.image_obs:
+			if self.frames_since_done >= self.image_buffer_frames:
+				return self.current_obs_frame_cat # already has obs from last step
+			elif self.frames_since_done == 0:
+				self.current_obs = uf.preprocess_image_obs(obs) # process here, save for add image sample
+				return np.tile(self.current_obs,[1,1,self.image_buffer_frames])
+			else: 
+				
+				return np.concatenate((np.tile(np.expand_dims(self.current_obs_frame_cat[:,:,-(self.frames_since_done+1)],axis=2),[1,1,(self.image_buffer_frames - self.frames_since_done)])
+					,self.current_obs_frame_cat[:,:,-(self.frames_since_done):]),axis=2)
+		else:
+			return obs
 
 
 

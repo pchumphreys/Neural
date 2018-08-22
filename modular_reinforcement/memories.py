@@ -9,32 +9,22 @@ class Memory():
 		self._loop_when_full = params.pop('loop_when_full',False)
 		self._discrete_action = params.pop('discrete_action',False)
 		self.n_outputs = n_outputs
-		self.n_inputs = [n_inputs] if not(isinstance(self.n_inputs,list)) else n_inputs
-		self.image_obs = params.pop('image_obs',False)
-		self.image_buffer_frames  = params.pop('image_buffer_frames',1)
-		if self.image_obs:
-			self.n_inputs = self.n_inputs = [self.image_buffer_frames]
-
+		self.n_inputs = [n_inputs] if not(isinstance(n_inputs,list)) else n_inputs
+		
 		self.reset()
 		
 	def reset(self):
 		self._size = 0
 		self._pos = -1
-		self.frames_since_done = 0 
-
+		
 		self.actions = np.zeros([self._max_size,self.n_outputs])
 		self.obs = np.zeros([self._max_size]+self.n_inputs)
 		self.next_obs = np.zeros([self._max_size]+self.n_inputs)
 		self.rewards = np.zeros(self._max_size)
 		self.dones = np.zeros(self._max_size)
 		
+
 	def add_sample(self,action,obs,next_obs,reward,done):
-		if self.image_obs:
-			self._add_image_sample(action,current_obs,next_obs,reward,done)
-		else:
-			self._add_sample(action,current_obs,next_obs,reward,done)
-	
-	def _add_sample(self,action,obs,next_obs,reward,done):
 		self._advance()
 
 		if self._discrete_action == True:
@@ -48,18 +38,6 @@ class Memory():
 		self.next_obs[self._pos] = next_obs
 		self.rewards[self._pos] = reward
 		self.dones[self._pos] = done
-
-	
-	def _add_image_sample(self,action,current_obs,next_obs,reward,done):
-		self.frames_since_done += 1
-		if self.frames_since_done == 1:
-			self.current_obs_frame_cat[-1] = uf.preprocess(current_obs)
-		next_obs_frame_cat = self.current_obs_frame_cat[1:].append(uf.preprocess(next_obs))
-		if self.frames_since_done >= self.image_buffer_frames:
-			self._add_sample(action,self.current_obs_frame_cat,next_obs_frame_cat,reward,done)
-		if done:
-			self.frames_since_done = 0
-
 		
 
 	def is_full(self):

@@ -56,9 +56,11 @@ class Base_Agent():
             self.writer.flush()
             
          
-
+    def pre_process_obs_for_action(self,obs):
+        return obs
     
     def get_action(self,obs,optimal_action = False):
+        obs = self.pre_process_obs_for_action(obs)
         return self.policy.get_actions(obs,optimal_action = optimal_action)
 
 

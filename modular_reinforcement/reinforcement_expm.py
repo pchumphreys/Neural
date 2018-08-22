@@ -70,7 +70,8 @@ def setup_expm(algorithm,expm_name,params = None,restore_model_path=None,episode
 	params['use_AWS'] = use_AWS
 
 	env = gym.make(params['env_name'])
-	n_inputs = env.observation_space.shape[0]
+
+	n_inputs = env.observation_space.shape
 	n_outputs = env.action_space.n
 	
 	agent = load_agent(algorithm,n_inputs,n_outputs,**copy.deepcopy(params))

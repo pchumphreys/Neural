@@ -36,6 +36,7 @@ def aws_save_to_bucket(source_dir,target_file_name):
     s3.Bucket('phumphreys-neural').upload_file(zipf,os.path.join('run_logs',target_file_name))
 
 def preprocess_image_obs(observation):
-    observation = cv2.cvtColor(cv2.resize(observation, (84, 110)), cv2.COLOR_BGR2GRAY)
+    observation = cv2.cvtColor(cv2.resize(observation[34:-16,:,:], (80, 80)), cv2.COLOR_BGR2GRAY)
     ret, observation = cv2.threshold(observation,1,255,cv2.THRESH_BINARY)
-    return np.reshape(observation,(84,110,1))
+    
+    return np.reshape(observation,(80,80,1))
