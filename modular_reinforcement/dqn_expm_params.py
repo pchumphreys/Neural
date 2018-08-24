@@ -89,40 +89,40 @@ expm_params = {
 	 'network_spec' : 2*[dict(type = 'dense',size=20)]
 	},
 	
-	'Breakout' : 
+	'Pong' : 
 	{
-	 'env_name' : 'Breakout-v4',
+	 'env_name' : 'PongNoFrameskip-v4',
 	 'atari_env' : True,
 	 'agent_params' : dict(
 		lr = 1e-3,
-		tau = 0.0001,
+		tau = 0.001,
 		discount = 0.99,
 		double = False,
         soft_learning = True,
         huber_loss = True,
         clip_gradients =  3.0,
         train_steps_per_t = 1,
+        action_steps_per_train = 2,
         reward_scale = 1.0,
         image_obs = True,
-        image_buffer_frames = 2
+        multi_step = 3,
 	 ),
 	 'policy_params' : dict(
 		action_choice = 'Boltzmann',
 	 ),
 	 'replay_buffer_params' : dict(
-		batch_size = 128,
-		max_size = 100000,
-		min_pool_size =1000,
+		batch_size = 32,
+		max_size = 500000,
+		min_pool_size =20000,
 	 ),
 	 'runner_params' : dict(
-	 	max_episodes = 20000,
+	 	max_episodes = 300000,
 		max_episode_length = -1,
 	  ),
-	 'network_spec' : ([dict(type = 'conv2d', size = 32, kernel = [8,8],stride = 4),
-	 				    dict(type = 'conv2d', size = 64, kernel = [4,4],stride = 2),
-	 				    dict(type = 'conv2d', size = 64, kernel = [3,3],stride = 1),
+	 'network_spec' : ([dict(type = 'conv2d', size = 16, kernel = [8,8],stride = 4),
+	 				    dict(type = 'conv2d', size = 32, kernel = [4,4],stride = 2),
 	 				    dict(type = 'flatten')]
-	 				  +[dict(type = 'dense',size=512,reg_weight=0.001)])
+	 				  +[dict(type = 'dense',size=256)])
 	},
 
 

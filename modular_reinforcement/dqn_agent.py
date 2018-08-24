@@ -28,6 +28,8 @@ class DQN_agent(Base_Agent):
 		self.huber_loss =  params['agent_params'].pop('huber_loss', True)
 		self.clip_gradients =  params['agent_params'].pop('clip_gradients', False)
 		self.train_steps_per_t = params['agent_params'].pop('train_steps_per_t',1)
+		self.action_steps_per_train = params['agent_params'].pop('action_steps_per_train',1)
+		self.steps_since_train = 1
 		self.multi_step = params['agent_params'].pop('multi_step',False)
 		if self.multi_step:
 			self.discount = self.discount**self.multi_step
@@ -82,8 +84,10 @@ class DQN_agent(Base_Agent):
 	def _init_placeholders(self):
 
 		self.actions = tf.placeholder(tf.float32,shape = [None,self.n_outputs],name = 'actions')
-		self.obs = tf.placeholder(tf.float32,shape = [None]+self.n_inputs,name = 'observations')
-		self.next_obs = tf.placeholder(tf.float32,shape = [None]+ self.n_inputs,name = 'next_observations')
+		self.raw_obs = tf.placeholder(tf.float32,shape = [None]+self.n_inputs,name = 'observations')
+		self.raw_next_obs = tf.placeholder(tf.float32,shape = [None]+ self.n_inputs,name = 'next_observations')
+		self.obs = self.raw_obs / 255
+		self.next_obs = self.raw_next_obs /255
 		self.rewards = tf.placeholder(tf.float32,shape = [None],name = 'rewards')
 		self.dones = tf.placeholder(tf.float32,shape = [None],name = 'dones')
 
@@ -91,8 +95,8 @@ class DQN_agent(Base_Agent):
 		
 	def _construct_feed_dict(self,samples):
 		return {self.actions : samples['actions'],
-				self.obs : samples['obs'],
-				self.next_obs : samples['next_obs'],
+				self.raw_obs : samples['obs'],
+				self.raw_next_obs : samples['next_obs'],
 				self.dones : samples['dones'],
 				self.rewards : samples['rewards']}
 
@@ -122,13 +126,21 @@ class DQN_agent(Base_Agent):
 	
 					
 
-	def train(self):
+	def train(self,global_step):
 		if self.rb.batch_ready():
-			for j in range(self.train_steps_per_t):
-				samples = self.rb.get_random_batch()
-				if self.multi_step:
-					samples['rewards'] = uf.calc_discount(samples['rewards'],self.discount,axis=1)[:,0]
-				losses = self._train(samples,[self.Q_Loss])
+			if self.steps_since_train == self.action_steps_per_train:
+				for j in range(self.train_steps_per_t):
+					samples = self.rb.get_random_batch()
+					if self.multi_step:
+						samples['rewards'] = uf.calc_discount(samples['rewards'],self.discount,axis=1)[:,0]
+				
+					losses = self._train(samples,global_step,[self.Q_Loss])
+				self.steps_since_train = 1
+			else:
+				losses = False
+				self.steps_since_train += 1
+
+
 		else:
 			losses = False
 		return losses

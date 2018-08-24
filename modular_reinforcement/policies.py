@@ -26,13 +26,16 @@ class Base_Policy_Discrete():
 
             self.policy_outputs = tf.nn.softmax(self.outputs,axis=1) # Automatically sum to one.
             self.log_policy_outputs = tf.log(self.policy_outputs)
-            self.optimal_policy = tf.argmax(self.policy_outputs,axis=1)      
-            self.draw_policy_from_boltz_probs = tf.squeeze(tf.multinomial(self.outputs,1))
+            with tf.device('/cpu:0'):
+                self.optimal_policy = tf.argmax(self.policy_outputs,axis=1)
+            with tf.device('/cpu:0'):      
+                self.draw_policy_from_boltz_probs = tf.squeeze(tf.multinomial(self.outputs,1))
 
 
     def get_actions(self,obs,optimal_action = False):
         
         if optimal_action:
+
             return self.optimal_policy.eval(feed_dict = {self.inputs : [obs]})[0]
 
         else:

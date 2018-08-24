@@ -24,7 +24,7 @@ class Runner():
 		
 		self.checkpoint_interval = params['runner_params'].pop('checkpoint_interval',100)
 		if not(self.log_dir is None):
-			self.saver = tf.train.Saver(max_to_keep=20)
+			self.saver = tf.train.Saver(max_to_keep=20,keep_checkpoint_every_n_hours=1)
 		self.reset()
 			
 		
@@ -39,7 +39,6 @@ class Runner():
 		self.episode_average_losses = []
 		
 	def run(self):
-		self.reset()
 		
 		try:
 			for i in range(self.max_episodes):
@@ -50,7 +49,7 @@ class Runner():
 					self.avg_sample_time = (self.avg_sample_time * self.global_t + time.time() - start_time)/(self.global_t + 1)
 					
 					start_time = time.time()
-					losses = self.agent.train()
+					losses = self.agent.train(self.global_t)
 
 					if not(losses is False):
 
@@ -75,10 +74,10 @@ class Runner():
 				if not(self.episode_finished_callback is None):
 					self.episode_finished_callback(self)
 
-				self.agent.episode_finished(self.current_episode_reward)
+				self.agent.episode_finished(self.current_episode_reward,self.global_t)
 
 				if (self.episodes % self.checkpoint_interval == 0) and not(self.log_dir is None):
-					self.saver.save(tf.get_default_session(),os.path.join(self.log_dir,'model'),global_step = self.episodes)
+					self.saver.save(tf.get_default_session(),os.path.join(self.log_dir,'model'),global_step = self.global_t)
 					self.agent.writer.flush()
 					
 		except KeyboardInterrupt:

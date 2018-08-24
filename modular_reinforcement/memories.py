@@ -70,11 +70,12 @@ class Memory():
 	def _get_multi_step_samples(self,inds,multi_step):
 		to_get_inds = np.expand_dims(inds,1) + np.tile(np.arange(multi_step),(np.shape(inds)[0],1))
 		entries = self._memory[to_get_inds]
+		
 		rewards = entries['reward'] * uf.mask_rewards_using_dones(entries['done'],axis=1) # Only keep rewards up to done
 		dones = np.sum(entries['done'],1) # Finally, signal done if any within are done
-		return dict(actions = entries[0]['action'],
-				   obs = [np.asarray(obs) for obs in entries[0]['obs']],
-				   next_obs = [np.asarray(obs) for obs in entries[-1]['next_obs']],
+		return dict(actions = entries[:,0]['action'],
+				   obs = [np.asarray(obs) for obs in entries[:,0]['obs']],
+				   next_obs = [np.asarray(obs) for obs in entries[:,-1]['next_obs']],
 				   rewards = rewards,
 				   dones = dones)
 

@@ -8,7 +8,7 @@ class Base_Agent():
         self.log_dir = params.get('log_dir',False)
         self.logging = not(self.log_dir is False)
         self.train_steps = 0
-
+        self.sess = tf.get_default_session()
         self.train_ops = []
 
     def _finish_agent_setup(self):
@@ -33,26 +33,27 @@ class Base_Agent():
         return self.optimizer.apply_gradients(zip(gradients, variables))
 
                     
-    def _train(self, samples, *args):   
+    def _train(self, samples,global_step, *args):   
         assert len(args) == 1
 
         feed_dict = self._construct_feed_dict(samples)  
         if self.logging:
-            _,summary,returns =  tf.get_default_session().run([self.train_ops,self.merged, args[0]], feed_dict = feed_dict)
-            self.writer.add_summary(summary,self.train_steps)
+            _,summary,returns =  self.sess.run([self.train_ops,self.merged, args[0]], feed_dict = feed_dict)
+            if self.train_steps % 100 == 0:
+                self.writer.add_summary(summary,global_step)
 
         else:
-            _,returns =  tf.get_default_session().run([self.train_ops, args[0]], feed_dict = feed_dict)
+            _,returns =  self.sess.run([self.train_ops, args[0]], feed_dict = feed_dict)
       
 
         self.train_steps += 1
         return returns
 
-    def episode_finished(self,episode_reward):
+    def episode_finished(self,episode_reward,global_step):
         if self.logging:
             summary = tf.Summary(value=[
                     tf.Summary.Value(tag="Episode rewards", simple_value=episode_reward)])
-            self.writer.add_summary(summary,self.train_steps)
+            self.writer.add_summary(summary,global_step)
             self.writer.flush()
             
      
