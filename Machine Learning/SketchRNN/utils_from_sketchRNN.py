@@ -83,6 +83,8 @@ def strokes_to_lines(strokes):
       x += float(strokes[i, 0])
       y += float(strokes[i, 1])
       line.append([x, y])
+  if not strokes[-1, 2] == 1:
+    lines.append(line)
   return lines
 
 
