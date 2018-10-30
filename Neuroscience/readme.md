@@ -1,3 +1,5 @@
+Work in progress!!
+
 I am working on some code to implement time-dependent neural dynamics using tensorflow. The code currently includes forward connections, as well as recurrence within a layer. However, feedback connections are not yet included.
 
 The cleanest code is for a rate-based implementation, although I am also testing a spike based version.
