@@ -1,0 +1,1 @@
+Here is my code focusing more on neuroscience. I am working on code to efficiently simulate the dynamics of neurons, ultimately focused on capturing the dynamics of neurons with dendritic compartments.
