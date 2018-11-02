@@ -21,7 +21,7 @@ expm_params = {
 	{
 	 'env_name' : 'LunarLander-v2',
 	 'agent_params' : dict(
-		lr = 1e-3,
+		lr = 1e-4,
 		discount = 0.99,
         clip_gradients =  3.0,
         t_steps_per_train = 50,

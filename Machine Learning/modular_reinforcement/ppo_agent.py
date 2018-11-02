@@ -13,8 +13,7 @@ class PPO_agent(Base_Agent):
 	def __init__(self,n_inputs,n_outputs,**params):
 
 		super(PPO_agent,self).__init__(**params)
-		
-		self.n_inputs = n_inputs
+		self.n_inputs = list(n_inputs)
 		self.n_outputs = n_outputs
 
 		self.lr = params['agent_params'].pop('lr',1e-3)
@@ -61,7 +60,7 @@ class PPO_agent(Base_Agent):
 	def _init_placeholders(self):
 
 		self.actions = tf.placeholder(tf.float32,shape = [None,self.n_outputs],name = 'actions')
-		self.obs = tf.placeholder(tf.float32,shape = [None,self.n_inputs],name = 'observations')
+		self.obs = tf.placeholder(tf.float32,shape = [None]+self.n_inputs,name = 'observations')
 		self.val_targets = tf.placeholder(tf.float32,shape = [None], name = 'value_targets')
 		self.advs = tf.placeholder(tf.float32,shape = [None], name = 'advantages')
 			  
@@ -94,13 +93,13 @@ class PPO_agent(Base_Agent):
 		self.train_ops.append(train_op)
 
 		
-	def train(self):
+	def train(self,global_step):
 
 		if (self.memory.last_sample_done() or self.memory.is_full()):
 			samples = self.memory.get_all_samples()
 
 			if self.memory.is_full():
-				values = self.get_values(np.append(samples['obs'],[samples['next_obs'][-1,:]],axis=0))
+				values = self.get_values(np.append(samples['obs'],[np.array(samples['next_obs'])[-1,:]],axis=0))
 				bootstrap = values[-1] # If episode isnt done, need to add on val. Should make so that can run indep of whether episode done
 			else:
 				values = np.append(self.get_values(samples['obs']),0)
@@ -110,7 +109,7 @@ class PPO_agent(Base_Agent):
 			# Generalised advantage estimation
 			samples['advs'] = uf.calc_discount(samples['rewards'] + self.discount * values[1:] - values[:-1],self.discount)
 
-			losses = self._train(samples,[self.val_loss,self.policy_loss])
+			losses = self._train(samples,global_step,[self.val_loss,self.policy_loss])
 
 			self.memory.reset()
 
